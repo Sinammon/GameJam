@@ -88,6 +88,10 @@ func start_game(d: int) -> void:
 	scars = []
 	last_stand_pack = {}
 	damaged_rooms = []
+	current_event = {}
+	last_night_summary = []
+	_pending_notes = []
+	_sleep_after_scar = false
 	skip_expedition = false
 	tomorrow_rad_mult = 1.0
 	bonus_crate = false
@@ -137,6 +141,7 @@ func bank_loot(items: Dictionary) -> void:
 	for kind in ITEM_KINDS:
 		add_item(kind, int(items.get(kind, 0)))
 	last_stand_pack = {}   # the old pack is only for one expedition
+	_clear_day_flags()     # storm / bonus crate were for this expedition only
 	changed.emit()
 	go_to("res://scenes/bunker.tscn")
 
@@ -146,18 +151,147 @@ func player_died(items: Dictionary, position: Vector2) -> void:
 	for kind in ITEM_KINDS:
 		clean[kind] = int(items.get(kind, 0))
 	last_stand_pack = {"items": clean, "position": position}
+	_pending_notes = ["You died outside. You wake up on your cot.", "Lost 1 bounce. Your pack lies where you fell."]
+	_lose_bounce(true)
+
+# ---------------------------------------------------------------- night
+# Flow: bunker Sleep (or morning "Wait inside", or after a scar pick) -> sleep()
+#   -> upkeep (purifier, garden, eat, drink) -> maybe collapse (lose a bounce, scar pick)
+#   -> day + 1 -> ending (after day 7) / night event / overnight summary -> morning.
+const STAT_KEYS := ["water", "food", "health", "wood", "concrete", "scrap", "circuits"]
+
+var rng := RandomNumberGenerator.new()
+var current_event: Dictionary = {}             # the event card being shown tonight
+var last_night_summary: Array[String] = []     # lines for the overnight screen
+var _night_before: Dictionary = {}             # stats when the night started (for the diff)
+var _night_notes: Array[String] = []           # story lines for the overnight screen
+var _pending_notes: Array[String] = []         # notes from before sleep() (death on the surface)
+var _sleep_after_scar := false                 # true: died outside, the night still has to run
+
+func seed_rng(value: int) -> void:
+	rng.seed = value
+
+func sleep() -> void:
+	_night_before = _snapshot()
+	_night_notes = _pending_notes.duplicate()
+	_pending_notes = []
+	_clear_day_flags()   # yesterday's storm / bonus crate are over
+	_night_upkeep()
+	if health <= 0:
+		_night_notes.append("You collapsed from hunger and thirst. Lost 1 bounce.")
+		_lose_bounce(false)
+		return
+	_end_night()
+
+# Morning button when a storm keeps you in: no expedition, no loot, straight to the night.
+func wait_inside() -> void:
+	_pending_notes.append("You stayed inside all day.")
+	sleep()
+
+func _night_upkeep() -> void:
+	if is_working("purifier"):
+		water += 2
+	if is_working("garden"):
+		food += 1
+	var water_need := int(settings.water_need)
+	if has_scar("iron_gut"):
+		water_need = maxi(0, water_need - 1)
+	var missing := 0
+	if water < water_need:
+		missing += 1
+	water = maxi(0, water - water_need)
+	if food < int(settings.food_need):
+		missing += 1
+	food = maxi(0, food - int(settings.food_need))
+	if missing > 0:
+		health -= 2 * missing
+		_night_notes.append("Not enough to eat or drink.")
+
+func _end_night() -> void:
+	day += 1
+	changed.emit()
+	if day > MAX_DAY:
+		go_to("res://scenes/ending.tscn", "res://scenes/main_menu.tscn")
+		return
+	current_event = {}
+	if rng.randf() < float(settings.event):
+		current_event = pick_event()
+	if current_event.is_empty():
+		show_overnight()
+	else:
+		go_to("res://scenes/night_event.tscn", "res://scenes/morning.tscn")
+
+func show_overnight() -> void:
+	last_night_summary = _night_notes.duplicate()
+	var now := _snapshot()
+	var changes: PackedStringArray = []
+	for k in STAT_KEYS:
+		var d: int = int(now[k]) - int(_night_before.get(k, now[k]))
+		if d != 0:
+			changes.append("%+d %s" % [d, k])
+	if changes.is_empty():
+		last_night_summary.append("Nothing changed.")
+	else:
+		last_night_summary.append(", ".join(changes))
+	changed.emit()
+	go_to("res://scenes/overnight.tscn")
+
+func _snapshot() -> Dictionary:
+	var out := {}
+	for k in STAT_KEYS:
+		out[k] = int(get(k))
+	return out
+
+func _clear_day_flags() -> void:
+	skip_expedition = false
+	tomorrow_rad_mult = 1.0
+	bonus_crate = false
+
+# ---------------------------------------------------------------- events (Stage 4)
+func pick_event() -> Dictionary:
+	return {}
+
+# ---------------------------------------------------------------- bouncing back
+# then_sleep: true when you died outside (the night still has to happen after the scar pick),
+# false when you collapsed during the night (the night is already done).
+func _lose_bounce(then_sleep: bool) -> void:
 	bounces -= 1
+	health = clampi(maxi(health, 6), 0, MAX_HEALTH)
+	_clear_day_flags()
 	changed.emit()
 	if bounces <= 0:
 		go_to("res://scenes/game_over.tscn", "res://scenes/main_menu.tscn")
+		return
+	_sleep_after_scar = then_sleep
+	if scar_choices().is_empty():
+		continue_after_scar()
 	else:
 		go_to("res://scenes/scar_pick.tscn")
 
-# ---------------------------------------------------------------- night
-func sleep() -> void:
-	day += 1
-	changed.emit()
-	go_to("res://scenes/morning.tscn")
+# Up to `count` random scars the player doesn't have yet.
+func scar_choices(count: int = 3) -> Array[String]:
+	var free: Array[String] = []
+	for id in SCARS:
+		if not has_scar(id):
+			free.append(id)
+	for i in range(free.size() - 1, 0, -1):   # shuffle with our own rng (seedable in tests)
+		var j := rng.randi_range(0, i)
+		var t := free[i]
+		free[i] = free[j]
+		free[j] = t
+	return free.slice(0, count)
+
+func pick_scar(id: String) -> void:
+	if SCARS.has(id) and not has_scar(id):
+		scars.append(id)
+	continue_after_scar()
+
+func continue_after_scar() -> void:
+	if _sleep_after_scar:
+		_sleep_after_scar = false
+		sleep()
+	else:
+		_end_night()
 
 # ---------------------------------------------------------------- helpers
 func has_scar(id: String) -> bool:
