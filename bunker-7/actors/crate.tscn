@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://actors/crate.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="shape"]
+size = Vector2(20, 14)
+
+[node name="Crate" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+position = Vector2(0, -7)
+shape = SubResource("shape")
+
+[node name="Sprite" type="ColorRect" parent="."]
+offset_left = -9.0
+offset_top = -14.0
+offset_right = 9.0
+color = Color(0.7, 0.5, 0.2, 1)
