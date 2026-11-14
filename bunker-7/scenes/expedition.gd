@@ -18,8 +18,11 @@ const HILLS := [[40, 9, 2], [75, 12, 3], [110, 8, 2], [140, 14, 3], [165, 6, 1]]
 # Crate x positions (px). Circuits can only appear in the far ones.
 const CRATE_XS := [260, 520, 840, 1150, 1500, 1850, 2150, 2450, 2750]
 
+const CrateScript := preload("res://actors/crate.gd")
+
 var radiation := 0.0
-var ended := false           # true once banking or dying has started
+var ended := false           # true once banking or dying has started (only one may ever run)
+var rad_mult := 1.0
 var surface_rows: Array[int] = []
 
 @onready var ground: TileMapLayer = $Ground
@@ -36,6 +39,7 @@ var msg_tween: Tween
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.35, 0.4, 0.38))
+	rad_mult = GSBridge.radiation_multiplier()
 	build_terrain()
 	hatch.position = Vector2(HATCH_X, surface_y(HATCH_X))
 	player.position = hatch.position + Vector2(0, -2)
@@ -76,41 +80,49 @@ func surface_y(x: float) -> float:
 
 func spawn_crates() -> void:
 	var crate_scene: PackedScene = load("res://actors/crate.tscn")
+	var loot_mult := GSBridge.loot_multiplier()
 	for x in CRATE_XS:
 		var c: Area2D = crate_scene.instantiate()
 		c.position = Vector2(x, surface_y(x))
 		crates.add_child(c)
 		var far := clampf((x - HATCH_X) / (WORLD_W - HATCH_X), 0.0, 1.0)
-		c.setup(far, GameState.get_loot_multiplier())
+		c.setup(far, loot_mult)
 
 # The backpack left where the player died last time. Gives items back when E is pressed.
+# Partial pickup rule: take what fits (rarest first, like crates); the rest stays
+# in the pack for the rest of THIS expedition only. GameState clears the pack
+# when this expedition ends (bank or death), so leftovers are then gone.
+# If you die again, whatever you carry becomes the new pack.
 class Pack extends Area2D:
 	var items: Dictionary
+	func can_interact(_player: Node) -> bool:
+		return not items.is_empty()
 	func interact(player: Node) -> void:
 		if player.capacity_left() <= 0:
-			player.message.emit("Backpack full!")
+			player.say("Backpack full!")
 			return
-		for kind in items.keys():
-			var added: int = player.add_item(kind, items[kind])
-			items[kind] -= added
-			if items[kind] <= 0:
-				items.erase(kind)
+		CrateScript.take_into(items, player)
 		if items.is_empty():
-			player.message.emit("Recovered your Last Stand Pack")
+			player.say("Recovered your Last Stand Pack")
 			queue_free()
 		else:
-			player.message.emit("Pack partly recovered (backpack full)")
+			player.say("Pack partly recovered (backpack full)")
 
 func spawn_last_stand_pack() -> void:
-	var data: Dictionary = GameState.get_last_stand_pack()
-	if data.is_empty() or not data.has("items"):
+	var data := GSBridge.last_stand_pack()
+	if data.is_empty():
 		return
 	var pack := Pack.new()
-	pack.items = data["items"].duplicate()
+	pack.name = "LastStandPack"
+	pack.add_to_group("last_stand_pack")
+	for k in data["items"]:
+		if data["items"][k] > 0:
+			pack.items[k] = data["items"][k]
 	pack.collision_layer = 4
 	pack.collision_mask = 0
 	var pos: Vector2 = data.get("position", Vector2(HATCH_X + 100, 0))
-	pack.position = Vector2(pos.x, surface_y(pos.x))   # sit on the ground
+	var x := clampf(pos.x, 8.0, WORLD_W - 8.0)
+	pack.position = Vector2(x, surface_y(x))   # sit on the ground
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(20, 18)
@@ -128,10 +140,10 @@ func spawn_last_stand_pack() -> void:
 
 func _process(delta: float) -> void:
 	if ended:
-		return
+		return   # no radiation during the death fade or after banking
 	if not hatch.player_inside:
 		var dist := clampf((player.position.x - HATCH_X) / (WORLD_W - HATCH_X), 0.0, 1.0)
-		var rate := lerpf(RAD_NEAR, RAD_FAR, dist) * GameState.get_radiation_multiplier()
+		var rate := lerpf(RAD_NEAR, RAD_FAR, dist) * rad_mult
 		radiation = minf(radiation + rate * delta, 100.0)
 	rad_bar.value = radiation
 	hint_label.text = "E: bank loot" if hatch.player_inside else ""
@@ -139,28 +151,37 @@ func _process(delta: float) -> void:
 		_die()
 
 func _die() -> void:
+	if ended:
+		return
 	ended = true
+	hint_label.text = ""
+	var items: Dictionary = player.items.duplicate()   # snapshot at the moment of death
+	var where: Vector2 = player.global_position
 	player.die()
-	var tw := create_tween()
-	tw.tween_property(fade, "color:a", 1.0, 1.2).set_delay(0.5)
+	# One sequence: wait for the collapse, then fade. (Awaiting two signals in a
+	# row can hang forever if the second one already fired.)
 	await player.collapse_done
+	var tw := create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 1.0)
 	await tw.finished
-	GameState.player_died(player.items.duplicate(), player.global_position)
+	GSBridge.player_died(items, where)
 
 func _on_bank_requested(p: Node) -> void:
 	if ended:
 		return
 	ended = true
+	hint_label.text = ""
+	p.frozen = true
 	var loot: Dictionary = p.items.duplicate()
 	p.clear_items()
-	GameState.bank_loot(loot)
+	GSBridge.bank_loot(loot)
 
 # --- HUD -------------------------------------------------------------------
 
 func update_hud() -> void:
 	var it: Dictionary = player.items
 	carry_label.text = "Carry %d/%d   wood %d  concrete %d  scrap %d  circuit %d" % [
-		player.total_items(), GameState.get_carry_limit(),
+		player.total_items(), player.carry_limit,
 		it["wood"], it["concrete"], it["scrap"], it["circuits"]]
 
 func show_message(text: String) -> void:

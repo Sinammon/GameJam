@@ -2,6 +2,8 @@ extends Area2D
 # A lootable crate. Press E near it. Contents are rolled once in setup().
 
 const KINDS := ["wood", "concrete", "scrap"]
+# When the backpack can't fit everything, the rarest items go in first.
+const TAKE_ORDER := ["circuits", "scrap", "concrete", "wood"]
 
 var contents := {}   # kind -> amount left inside
 
@@ -18,24 +20,35 @@ func setup(far: float, loot_mult: float) -> void:
 func is_empty() -> bool:
 	return contents.is_empty()
 
+func can_interact(_player: Node) -> bool:
+	return not is_empty()
+
 # Called by the player when E is pressed in reach.
 func interact(player: Node) -> void:
 	if is_empty():
-		player.message.emit("Empty crate")
+		player.say("Empty crate")
 		return
 	if player.capacity_left() <= 0:
-		player.message.emit("Backpack full!")
+		player.say("Backpack full!")
 		return
-	var got := []
-	for kind in contents.keys():
-		var added: int = player.add_item(kind, contents[kind])
-		contents[kind] -= added
-		if contents[kind] <= 0:
-			contents.erase(kind)
-		if added > 0:
-			got.append("+%d %s" % [added, kind])
+	var got := take_into(contents, player)
 	if is_empty():
 		$Sprite.color = Color(0.3, 0.25, 0.2)   # looks opened
-		player.message.emit(", ".join(got))
+		player.say(", ".join(got))
 	else:
-		player.message.emit(", ".join(got) + " (full, loot left in crate)")
+		player.say(", ".join(got) + " (full, loot left in crate)")
+
+# Moves as much of src into the player's backpack as fits (rarest first) and
+# removes what was taken from src. Returns lines like "+2 wood". Shared with the pack.
+static func take_into(src: Dictionary, player: Node) -> Array:
+	var got := []
+	for kind in TAKE_ORDER:
+		if not src.has(kind):
+			continue
+		var added: int = player.add_item(kind, src[kind])
+		src[kind] -= added
+		if src[kind] <= 0:
+			src.erase(kind)
+		if added > 0:
+			got.append("+%d %s" % [added, kind])
+	return got
