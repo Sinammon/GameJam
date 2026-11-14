@@ -58,6 +58,7 @@ func run() -> void:
 	await test_empty_bank_confirm()
 	await test_round_trip()
 	await test_terrain()
+	await test_supplies()
 	print("FAILS: %d" % fails)
 	quit(1 if fails > 0 else 0)
 
@@ -73,7 +74,7 @@ func test_missing_contract() -> void:
 
 func test_input_and_bank() -> void:
 	var gs = set_gs(FAKE.new())
-	gs.pack = {"items": {"wood": 3, "circuits": 1, "food": 9}, "position": Vector2(300, 0)}
+	gs.pack = {"items": {"wood": 3, "circuits": 1, "junk": 9}, "position": Vector2(300, 0)}
 	await start_expedition()
 	check(p.is_on_floor(), "player lands on ground")
 	check(ex.hatch.player_inside, "player starts inside hatch")
@@ -101,7 +102,7 @@ func test_input_and_bank() -> void:
 	await frames(20)
 	key(KEY_LEFT, false)
 	check(p.position.x < x0 - 20, "Left arrow walks left")
-	# Last Stand Pack: unknown key "food" dropped, partial pickup takes rarest first
+	# Last Stand Pack: unknown key "junk" dropped, partial pickup takes rarest first
 	var packs := get_nodes_in_group("last_stand_pack")
 	check(packs.size() == 1, "pack spawned")
 	if packs.size() == 1:
@@ -129,7 +130,7 @@ func test_input_and_bank() -> void:
 	check(not c.contents.has("circuits"), "near crate has no circuits")
 	for i in 20: p.add_item("wood", 5)
 	check(p.total_items() == 12, "carry limit enforced (%d)" % p.total_items())
-	check(p.add_item("food", 1) == 0, "unknown item kind refused")
+	check(p.add_item("junk", 1) == 0, "unknown item kind refused")
 	# back to the hatch, E banks exactly what was carried
 	p.global_position = ex.hatch.global_position + Vector2(0, -2)
 	await frames(5)
@@ -179,7 +180,7 @@ func test_death() -> void:
 	if gs.died_calls.size() == 1:
 		var items: Dictionary = gs.died_calls[0][0]
 		var pos: Vector2 = gs.died_calls[0][1]
-		check(items == {"wood": 0, "concrete": 0, "scrap": 4, "circuits": 0}, "died with %s" % str(items))
+		check(items == {"wood": 0, "concrete": 0, "scrap": 4, "circuits": 0, "water": 0, "food": 0}, "died with %s" % str(items))
 		check(absf(pos.x - 500) < 5, "death position %s" % str(pos))
 
 # E twice at the hatch with nothing carried = go home empty-handed.
@@ -220,6 +221,29 @@ func test_round_trip() -> void:
 	check(ex.radiation > 70.0, "farthest crate round trip is tight (%.1f%%)" % ex.radiation)
 	# Hard (x1.5) should not allow the full trip without upgrades
 	check(ex.radiation * 1.5 > 100.0, "Hard makes the farthest crate a gamble")
+
+# Crates also hold water/food; they count toward the carry limit and are banked.
+func test_supplies() -> void:
+	var gs = set_gs(FAKE.new())
+	await start_expedition()
+	var kinds := {}
+	for i in 300:
+		var c = load("res://actors/crate.gd").new()
+		c.setup(randf(), 1.0)
+		for k in c.contents: kinds[k] = true
+		c.free()
+	check(kinds.has("water") and kinds.has("food") and kinds.keys().all(func(k): return k in GSBridge.ITEM_KINDS), "crates roll supplies: %s" % str(kinds.keys()))
+	var cr = ex.crates.get_child(1)
+	cr.contents = {"water": 2, "food": 1, "wood": 2}
+	p.add_item("scrap", 9)   # 3 slots left
+	p.global_position = cr.global_position + Vector2(0, -2)
+	await frames(5)
+	await tap(KEY_E)
+	check(p.items["water"] == 2 and p.items["food"] == 1 and p.total_items() == 12 and cr.contents == {"wood": 2}, "supplies before wood, count toward limit (%s)" % str(p.items))
+	p.global_position = ex.hatch.global_position + Vector2(0, -2)
+	await frames(5)
+	await tap(KEY_E)
+	check(gs.bank_calls.size() == 1 and gs.bank_calls[0]["water"] == 2 and gs.bank_calls[0]["food"] == 1, "water/food banked")
 
 func test_terrain() -> void:
 	var maxstep := 0

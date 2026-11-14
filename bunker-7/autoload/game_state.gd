@@ -6,6 +6,8 @@ extends Node
 signal changed   # UI listens to this and redraws
 
 const ITEM_KINDS := ["wood", "concrete", "scrap", "circuits"]
+# What the expedition can carry home / leave in the pack: materials plus scavenged supplies.
+const LOOT_KINDS := ["wood", "concrete", "scrap", "circuits", "water", "food"]
 const MAX_DAY := 7
 const MAX_HEALTH := 10
 
@@ -138,14 +140,14 @@ func has_air_filter() -> bool:
 func has_reinforced_door() -> bool:
 	return is_working("door")
 
-# {} or {"items": {wood, concrete, scrap, circuits}, "position": Vector2}
+# {} or {"items": {wood, concrete, scrap, circuits, water, food}, "position": Vector2}
 func get_last_stand_pack() -> Dictionary:
 	return last_stand_pack.duplicate(true)
 
 # ---------------------------------------------------------------- CONTRACT: call
 # The expedition calls this when the player returns alive to the hatch.
 func bank_loot(items: Dictionary) -> void:
-	for kind in ITEM_KINDS:
+	for kind in LOOT_KINDS:
 		add_item(kind, int(items.get(kind, 0)))
 	last_stand_pack = {}   # the old pack is only for one expedition
 	_clear_day_flags()     # storm / bonus crate were for this expedition only
@@ -155,7 +157,7 @@ func bank_loot(items: Dictionary) -> void:
 # The expedition calls this when radiation reaches 100%.
 func player_died(items: Dictionary, position: Vector2) -> void:
 	var clean := {}
-	for kind in ITEM_KINDS:
+	for kind in LOOT_KINDS:
 		clean[kind] = int(items.get(kind, 0))
 	last_stand_pack = {"items": clean, "position": position}
 	_pending_notes = ["You died outside. You wake up on your cot.", "Lost 1 bounce. Your pack lies where you fell."]

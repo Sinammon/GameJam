@@ -3,7 +3,7 @@ extends Area2D
 
 const KINDS := ["wood", "concrete", "scrap"]
 # When the backpack can't fit everything, the rarest items go in first.
-const TAKE_ORDER := ["circuits", "scrap", "concrete", "wood"]
+const TAKE_ORDER := ["circuits", "scrap", "water", "food", "concrete", "wood"]
 
 var contents := {}   # kind -> amount left inside
 
@@ -33,6 +33,16 @@ func setup(far: float, loot_mult: float) -> void:
 	# Rare circuit, only in the far right of the map.
 	if far > 0.7 and randf() < 0.35:
 		contents["circuits"] = 1
+	# Supplies (needed to survive Hard): 0-1 each, 0-2 of food in the suburb
+	# (first third of the map) and of water at the market (middle third).
+	var water := randi_range(0, 2 if far >= 0.33 and far < 0.66 else 1)
+	var food := randi_range(0, 2 if far < 0.33 else 1)
+	_add(contents, "water", roundi(water * loot_mult))
+	_add(contents, "food", roundi(food * loot_mult))
+
+static func _add(d: Dictionary, kind: String, n: int) -> void:
+	if n > 0:
+		d[kind] = d.get(kind, 0) + n
 
 func is_empty() -> bool:
 	return contents.is_empty()

@@ -11,7 +11,7 @@ const BASE_SPEED := 100.0
 const JUMP_VELOCITY := -290.0
 
 # What the player carries. Keys match the GameState contract.
-var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0}
+var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0, "water": 0, "food": 0}
 var dead := false
 var frozen := false            # true after banking: no more input
 var speed := BASE_SPEED

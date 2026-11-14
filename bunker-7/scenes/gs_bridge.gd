@@ -5,7 +5,8 @@ extends RefCounted
 # game_state.gd logs one warning and uses a default instead of crashing.
 # Values are also type-checked (int/float mix-ups, bad pack data).
 
-const ITEM_KINDS := ["wood", "concrete", "scrap", "circuits"]
+# water/food were added later (scavenging for Hard); GameState banks them too.
+const ITEM_KINDS := ["wood", "concrete", "scrap", "circuits", "water", "food"]
 
 static var _warned := {}
 
@@ -63,7 +64,7 @@ static func has_air_filter() -> bool:
 static func has_reinforced_door() -> bool:
 	return _flag("has_reinforced_door")
 
-# Always returns {} or {"items": {wood,concrete,scrap,circuits: int}, "position": Vector2}.
+# Always returns {} or {"items": {ITEM_KINDS: int}, "position": Vector2}.
 # A pack with nothing in it, or with garbage data, counts as no pack.
 static func last_stand_pack() -> Dictionary:
 	var v: Variant = _call("get_last_stand_pack")
@@ -82,7 +83,7 @@ static func last_stand_pack() -> Dictionary:
 		return {"items": items}   # caller picks a default spot
 	return {"items": items, "position": pos}
 
-# Only the four contract keys, as non-negative ints.
+# Only the contract keys (ITEM_KINDS), as non-negative ints.
 static func clean_items(src: Dictionary) -> Dictionary:
 	var out := {}
 	for k in ITEM_KINDS:

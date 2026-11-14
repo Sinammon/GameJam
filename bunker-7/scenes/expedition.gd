@@ -290,9 +290,9 @@ func _on_bank_requested(p: Node) -> void:
 
 func update_hud() -> void:
 	var it: Dictionary = player.items
-	carry_label.text = "Carry %d/%d   wood %d  concrete %d  scrap %d  circuit %d" % [
+	carry_label.text = "Carry %d/%d   wood %d  concrete %d  scrap %d  circuit %d  water %d  food %d" % [
 		player.total_items(), player.carry_limit,
-		it["wood"], it["concrete"], it["scrap"], it["circuits"]]
+		it["wood"], it["concrete"], it["scrap"], it["circuits"], it["water"], it["food"]]
 
 func show_message(text: String) -> void:
 	msg_label.text = text
