@@ -6,7 +6,7 @@ Theme: **Bounce Back**. Nuclear war, 2D side-view pixel art (Terraria look), sur
 
 ## 1. The pitch (read this out loud to the team)
 
-The bombs fell. You are the last person in a small bunker. A radio crackles: *"Convoy arrives at dawn on Day 7. Keep the beacon alive."*
+The bombs fell. You are the last person in a small bunker. A radio crackles: *"Convoy arrives at dawn after Day 7. Keep the beacon alive."*
 
 Each day you climb out of the hatch into the irradiated ruins, scavenge water, food and scrap, and race back before the radiation gets you. At night you eat, drink, build, and survive a random event. Survive 7 days and build the radio beacon to get rescued.
 
@@ -126,8 +126,8 @@ Draw one event card (chance depends on difficulty). Player picks one of two opti
 3. If Bounces hit 0: game over screen with "How far you got" (days, builds).
 
 ### 3.7 Win / endings
-- Day 7 reached **with Radio Beacon built:** convoy arrives, good ending.
-- Day 7 reached **without it:** you survive, but nobody comes. Neutral ending: "You're alive. Alone."
+- Day 7 survived (ending after the Day 7 night) **with Radio Beacon built:** convoy arrives, good ending.
+- Day 7 survived (ending after the Day 7 night) **without it:** you survive, but nobody comes. Neutral ending: "You're alive. Alone."
 - Out of Bounces: game over.
 
 ---

@@ -1,7 +1,7 @@
 extends Control
 # Main menu: title art, radio message, three difficulty buttons.
 
-const RADIO_MESSAGE := "\"...convoy arrives at dawn on Day 7.\nKeep the beacon alive...\""
+const RADIO_MESSAGE := "\"...convoy arrives at dawn after Day 7.\nKeep the beacon alive...\""
 
 func _ready() -> void:
 	var has_art := UIKit.tex("characters_clean/title_art") != null
