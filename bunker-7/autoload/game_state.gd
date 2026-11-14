@@ -60,6 +60,7 @@ var unlocked_rooms: Array[String] = ["bedroom"]
 var built: Dictionary = {}               # {"purifier": true}
 var scars: Array[String] = []
 var last_stand_pack: Dictionary = {}     # {} or {"items": {...}, "position": Vector2}
+var damaged_rooms: Array[String] = []    # a damaged room's buildings don't work until repaired
 
 # One-day flags set by night events (used from Stage 4).
 var skip_expedition := false
@@ -86,6 +87,7 @@ func start_game(d: int) -> void:
 	built = {}
 	scars = []
 	last_stand_pack = {}
+	damaged_rooms = []
 	skip_expedition = false
 	tomorrow_rad_mult = 1.0
 	bonus_crate = false
@@ -120,10 +122,10 @@ func get_dig_speed_bonus() -> float:
 	return 0.3 if has_scar("steady") else 0.0
 
 func has_air_filter() -> bool:
-	return is_built("filter")
+	return is_working("filter")
 
 func has_reinforced_door() -> bool:
-	return is_built("door")
+	return is_working("door")
 
 # {} or {"items": {wood, concrete, scrap, circuits}, "position": Vector2}
 func get_last_stand_pack() -> Dictionary:
@@ -151,6 +153,12 @@ func player_died(items: Dictionary, position: Vector2) -> void:
 	else:
 		go_to("res://scenes/scar_pick.tscn")
 
+# ---------------------------------------------------------------- night
+func sleep() -> void:
+	day += 1
+	changed.emit()
+	go_to("res://scenes/morning.tscn")
+
 # ---------------------------------------------------------------- helpers
 func has_scar(id: String) -> bool:
 	return scars.has(id)
@@ -160,6 +168,54 @@ func is_room_unlocked(id: String) -> bool:
 
 func is_built(id: String) -> bool:
 	return built.has(id)
+
+# Built AND its room is not damaged.
+func is_working(id: String) -> bool:
+	return is_built(id) and not is_room_damaged(BUILDINGS[id].room)
+
+func is_room_damaged(id: String) -> bool:
+	return damaged_rooms.has(id)
+
+# ---------------------------------------------------------------- rooms & building
+const REPAIR_COST := {"scrap": 3}
+
+func can_unlock(id: String) -> bool:
+	return ROOMS.has(id) and not is_room_unlocked(id) and can_afford(ROOMS[id].cost)
+
+func unlock_room(id: String) -> bool:
+	if not can_unlock(id) or not pay(ROOMS[id].cost):
+		return false
+	unlocked_rooms.append(id)
+	changed.emit()
+	return true
+
+func can_build(id: String) -> bool:
+	return BUILDINGS.has(id) and not is_built(id) and is_room_unlocked(BUILDINGS[id].room) \
+		and can_afford(BUILDINGS[id].cost)
+
+func build(id: String) -> bool:
+	if not can_build(id) or not pay(BUILDINGS[id].cost):
+		return false
+	built[id] = true
+	changed.emit()
+	return true
+
+func can_repair(id: String) -> bool:
+	return is_room_damaged(id) and can_afford(REPAIR_COST)
+
+func repair_room(id: String) -> bool:
+	if not can_repair(id) or not pay(REPAIR_COST):
+		return false
+	damaged_rooms.erase(id)
+	changed.emit()
+	return true
+
+func buildings_in(room: String) -> Array[String]:
+	var out: Array[String] = []
+	for id in BUILDINGS:
+		if BUILDINGS[id].room == room:
+			out.append(id)
+	return out
 
 func get_item(kind: String) -> int:
 	return int(get(kind))
