@@ -1,0 +1,28 @@
+# Godot 4+ generated files
+.godot/
+.import/
+
+# Godot 3 / misc editor data
+*.translation
+export.cfg
+export_credentials.cfg
+.mono/
+data_*/
+mono_crash.*.json
+
+# Export output
+build/
+exports/
+*.apk
+*.aab
+*.exe
+*.pck
+*.dmg
+/android/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tmp
