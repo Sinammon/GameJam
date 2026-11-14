@@ -389,6 +389,26 @@ func continue_after_scar() -> void:
 	else:
 		_end_night()
 
+# ---------------------------------------------------------------- endings
+func is_rescued() -> bool:
+	return is_built("radio") and not is_room_damaged("radio")
+
+func bounces_used() -> int:
+	return int(settings.bounces) - bounces
+
+func built_names_text() -> String:
+	var names: PackedStringArray = ["Cot"]
+	for id in BUILDINGS:
+		if is_built(id):
+			names.append(BUILDINGS[id].name)
+	return ", ".join(names)
+
+func scar_names_text() -> String:
+	var names: PackedStringArray = []
+	for id in scars:
+		names.append(SCARS[id].name)
+	return "none" if names.is_empty() else ", ".join(names)
+
 # ---------------------------------------------------------------- helpers
 func has_scar(id: String) -> bool:
 	return scars.has(id)
