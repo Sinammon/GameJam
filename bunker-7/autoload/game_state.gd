@@ -247,9 +247,105 @@ func _clear_day_flags() -> void:
 	tomorrow_rad_mult = 1.0
 	bonus_crate = false
 
-# ---------------------------------------------------------------- events (Stage 4)
+# ---------------------------------------------------------------- night events
+# Events are data: data/events.json (how-to: data/EVENTS_HOWTO.md).
+const EVENTS_PATH := "res://data/events.json"
+
+# Returns the list of valid events. A missing or broken file gives [] and a warning (no events).
+func load_events() -> Array:
+	if not FileAccess.file_exists(EVENTS_PATH):
+		push_warning("No %s: night events are off." % EVENTS_PATH)
+		return []
+	var json := JSON.new()
+	var data: Variant = null
+	if json.parse(FileAccess.get_file_as_string(EVENTS_PATH)) == OK:
+		data = json.data
+	if not (data is Dictionary and data.get("events") is Array):
+		push_warning("%s is not valid JSON with an \"events\" list: night events are off." % EVENTS_PATH)
+		return []
+	var out: Array = []
+	for e in data.events:
+		if e is Dictionary and e.get("title") is String and e.get("options") is Array and e.options.size() >= 1 \
+				and e.options.all(func(o): return o is Dictionary and o.get("label") is String):
+			out.append(e)
+		else:
+			push_warning("Skipping a broken event in %s: %s" % [EVENTS_PATH, str(e).left(60)])
+	return out
+
 func pick_event() -> Dictionary:
-	return {}
+	var events := load_events()
+	if events.is_empty():
+		return {}
+	return events[rng.randi_range(0, events.size() - 1)]
+
+func can_choose_option(option: Dictionary) -> bool:
+	var cost: Variant = option.get("cost", {})
+	return not (cost is Dictionary) or can_afford(cost)
+
+# Applies option `index` of current_event and returns the result line to show.
+func choose_event_option(index: int) -> String:
+	var options: Array = current_event.get("options", [])
+	if index < 0 or index >= options.size() or not can_choose_option(options[index]):
+		return ""
+	var o: Dictionary = options[index]
+	if o.get("cost") is Dictionary:
+		pay(o.cost)
+	var text: String = str(o.get("text", ""))
+	if str(o.get("unless", "")) == "door" and has_reinforced_door():
+		text = str(o.get("unless_text", "Your Reinforced Door holds."))
+	elif o.get("effects") is Dictionary:
+		var extra := apply_effects(o.effects)
+		if extra != "":
+			text += " " + extra
+	_night_notes.append("%s: %s" % [current_event.get("title", "Event"), text])
+	current_event = {}
+	changed.emit()
+	return text
+
+# Applies an effects dictionary. Returns an extra story line (e.g. which room got damaged).
+func apply_effects(effects: Dictionary) -> String:
+	var extra := ""
+	for k in effects:
+		var v: Variant = effects[k]
+		match k:
+			"wood", "concrete", "scrap", "circuits", "water", "food":
+				add_item(k, int(v))
+			"health":
+				health = clampi(health + int(v), 1, MAX_HEALTH)
+			"skip_expedition":
+				skip_expedition = bool(v)
+			"rad_mult":
+				tomorrow_rad_mult = maxf(0.1, float(v))
+			"bonus_crate":
+				bonus_crate = bool(v)
+			"damage_room":
+				if bool(v):
+					var room := damage_random_room()
+					if room != "":
+						extra = "The %s is damaged!" % ROOMS[room].name
+			"repair_room":
+				if bool(v) and not damaged_rooms.is_empty():
+					extra = "The %s is repaired." % ROOMS[damaged_rooms[0]].name
+					damaged_rooms.remove_at(0)
+			_:
+				push_warning("Unknown event effect '%s' (ignored)." % k)
+	return extra
+
+# Damages a random unlocked, undamaged room that has a building. Returns its id or "".
+func damage_random_room() -> String:
+	var targets: Array[String] = []
+	for id in unlocked_rooms:
+		if is_room_damaged(id):
+			continue
+		for b in buildings_in(id):
+			if is_built(b):
+				targets.append(id)
+				break
+	if targets.is_empty():
+		return ""
+	var room := targets[rng.randi_range(0, targets.size() - 1)]
+	damaged_rooms.append(room)
+	return room
 
 # ---------------------------------------------------------------- bouncing back
 # then_sleep: true when you died outside (the night still has to happen after the scar pick),
@@ -355,7 +451,7 @@ func get_item(kind: String) -> int:
 	return int(get(kind))
 
 func add_item(kind: String, amount: int) -> void:
-	if kind in ITEM_KINDS:
+	if kind in ITEM_KINDS or kind == "water" or kind == "food":
 		set(kind, maxi(0, get_item(kind) + amount))
 
 func can_afford(cost: Dictionary) -> bool:
