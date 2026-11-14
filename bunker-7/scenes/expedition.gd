@@ -194,9 +194,12 @@ func show_message(text: String) -> void:
 	msg_tween = create_tween()
 	msg_tween.tween_property(msg_label, "modulate:a", 0.0, 0.6).set_delay(1.5)
 
+# Debug keys, only in debug builds (editor / debug export), never in the shipped game.
 func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			get_tree().quit()
-		elif event.keycode == KEY_F1:   # debug: fill radiation to test dying
+		elif event.keycode == KEY_F1:   # fill radiation to test dying
 			radiation = 100.0
