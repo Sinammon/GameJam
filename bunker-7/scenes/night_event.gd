@@ -1,35 +1,42 @@
 extends Control
-# Night event card: title, description, two choices, then the result line and Continue.
+# Night event card: picture, title, description, two choices, then the result line and Continue.
+# Picture: art/world_clean/event_<id>.png (88x64) if it exists, else the card has no picture.
 
 var _options_box: VBoxContainer
 var _result: Label
 var _continue: Button
 
 func _ready() -> void:
-	UIKit.background(self)
+	UIKit.backdrop(self, "characters_clean/game_over", UIKit.BG, 0.25)   # the dark bunker at night
 	var ev: Dictionary = GameState.current_event
 	if ev.is_empty():
 		GameState.show_overnight()
 		return
-	var panel := ColorRect.new()
-	panel.color = UIKit.PANEL
-	panel.position = Vector2(60, 24)
-	panel.size = Vector2(360, 222)
-	add_child(panel)
-	var box := VBoxContainer.new()
-	box.position = Vector2(12, 10)
-	box.size = Vector2(336, 202)
-	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
+	var box := UIKit.center_panel(self, UIKit.panel_style(12), 6)
+	box.custom_minimum_size = Vector2(356, 0)
 
-	box.add_child(UIKit.label("NIGHT %d" % (GameState.day - 1), 8, UIKit.DIM))
-	box.add_child(UIKit.label(str(ev.get("title", "Something happens")), 16, UIKit.ACCENT))
-	var desc := UIKit.label(str(ev.get("description", "")), 9)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
+	box.add_child(header)
+	var pic := UIKit.picture("world_clean/event_%s" % str(ev.get("id", "")))
+	if pic != null:
+		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		header.add_child(pic)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 4)
+	header.add_child(text)
+	var align := HORIZONTAL_ALIGNMENT_LEFT if pic != null else HORIZONTAL_ALIGNMENT_CENTER
+	text.add_child(UIKit.label("NIGHT %d" % (GameState.day - 1), 8, UIKit.DIM, align))
+	var title := UIKit.label(str(ev.get("title", "Something happens")), 15, UIKit.ACCENT, align)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.add_child(title)
+	var desc := UIKit.label(str(ev.get("description", "")), 9, UIKit.TEXT, align)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(desc)
+	text.add_child(desc)
 
 	_options_box = VBoxContainer.new()
-	_options_box.add_theme_constant_override("separation", 6)
+	_options_box.add_theme_constant_override("separation", 5)
 	box.add_child(_options_box)
 	var options: Array = ev.get("options", [])
 	var any_ok := false
