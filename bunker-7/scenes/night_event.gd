@@ -59,7 +59,16 @@ func _wide_button(text: String) -> Button:
 	return b
 
 func _choose(i: int) -> void:
-	_finish(GameState.choose_event_option(i))
+	var before: Dictionary = GameState._snapshot()
+	var text: String = GameState.choose_event_option(i)
+	var after: Dictionary = GameState._snapshot()
+	# Colour the result by what happened: green = net gain, red = net loss, grey = neutral.
+	var net := 0
+	for k in GameState.STAT_KEYS:
+		net += int(after.get(k, 0)) - int(before.get(k, 0))
+	var color := UIKit.GOOD if net > 0 else (UIKit.BAD if net < 0 else UIKit.TEXT)
+	_result.add_theme_color_override("font_color", color)
+	_finish(text)
 
 func _finish(text: String) -> void:
 	_options_box.visible = false

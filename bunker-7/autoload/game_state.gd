@@ -352,7 +352,11 @@ func damage_random_room() -> String:
 # false when you collapsed during the night (the night is already done).
 func _lose_bounce(then_sleep: bool) -> void:
 	bounces -= 1
+	var old_health := health
 	health = clampi(maxi(health, 6), 0, MAX_HEALTH)
+	# The health reset is not a night "gain": move the summary baseline so it isn't shown as +health.
+	if _night_before.has("health"):
+		_night_before["health"] = int(_night_before["health"]) + (health - old_health)
 	_clear_day_flags()
 	changed.emit()
 	if bounces <= 0:
