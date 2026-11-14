@@ -29,11 +29,11 @@ const ROOMS := {
 const ROOM_ORDER := ["bedroom", "utility", "garden", "storage", "radio"]
 
 const BUILDINGS := {
-	"door":     {"name": "Reinforced Door",   "room": "bedroom", "cost": {"wood": 4, "scrap": 2}},
-	"purifier": {"name": "Water Purifier",    "room": "utility", "cost": {"scrap": 6}},
-	"filter":   {"name": "Air Filter",        "room": "utility", "cost": {"scrap": 5}},
-	"garden":   {"name": "Hydroponic Garden", "room": "garden",  "cost": {"wood": 5, "scrap": 3}},
-	"radio":    {"name": "Radio Beacon",      "room": "radio",   "cost": {"scrap": 10}},
+	"door":     {"name": "Reinforced Door",   "room": "bedroom", "cost": {"wood": 4, "scrap": 2}, "desc": "Raiders can't break in"},
+	"purifier": {"name": "Water Purifier",    "room": "utility", "cost": {"scrap": 6}, "desc": "+2 water every night"},
+	"filter":   {"name": "Air Filter",        "room": "utility", "cost": {"scrap": 5}, "desc": "Radiation builds 25% slower outside"},
+	"garden":   {"name": "Hydroponic Garden", "room": "garden",  "cost": {"wood": 5, "scrap": 3}, "desc": "+1 food every night"},
+	"radio":    {"name": "Radio Beacon",      "room": "radio",   "cost": {"scrap": 10}, "desc": "Calls the convoy: needed to be rescued"},
 }
 
 const SCARS := {
@@ -41,7 +41,7 @@ const SCARS := {
 	"scavenger":  {"name": "Scavenger's Eye", "desc": "+1 loot per crate"},
 	"light_feet": {"name": "Light Feet",      "desc": "+10% speed"},
 	"iron_gut":   {"name": "Iron Gut",        "desc": "need 1 less water a day"},
-	"steady":     {"name": "Steady Hands",    "desc": "dig 30% faster"},
+	"steady":     {"name": "Steady Hands",    "desc": "carry 2 more items"},   # no digging in the game
 }
 
 # --- Game state ---
@@ -92,6 +92,9 @@ func start_game(d: int) -> void:
 	last_night_summary = []
 	_pending_notes = []
 	_sleep_after_scar = false
+	_awaiting_scar = false
+	_night_before = {}
+	_night_notes = []
 	skip_expedition = false
 	tomorrow_rad_mult = 1.0
 	bonus_crate = false
@@ -108,22 +111,26 @@ func get_radiation_multiplier() -> float:
 	var m: float = float(settings.rad) * tomorrow_rad_mult
 	if has_scar("thick_skin"):
 		m *= 0.8
+	if has_air_filter():   # the expedition has no overnight radiation, so the filter slows it outside
+		m *= 0.75
 	return m
 
 func get_loot_multiplier() -> float:
 	var m: float = float(settings.loot)
 	if has_scar("scavenger"):
 		m *= 1.33   # crates give 2-4 items, so +1 per crate is about +33%
+	if bonus_crate:   # stranger's supplies: the expedition has no extra crate, so crates are fuller
+		m *= 1.5
 	return m
 
 func get_carry_limit() -> int:
-	return 16 if is_room_unlocked("storage") else 12
+	return (16 if is_room_unlocked("storage") else 12) + (2 if has_scar("steady") else 0)
 
 func get_move_speed_bonus() -> float:
 	return 0.1 if has_scar("light_feet") else 0.0
 
 func get_dig_speed_bonus() -> float:
-	return 0.3 if has_scar("steady") else 0.0
+	return 0.0   # no digging in the game (Steady Hands gives carry space instead)
 
 func has_air_filter() -> bool:
 	return is_working("filter")
@@ -167,6 +174,7 @@ var _night_before: Dictionary = {}             # stats when the night started (f
 var _night_notes: Array[String] = []           # story lines for the overnight screen
 var _pending_notes: Array[String] = []         # notes from before sleep() (death on the surface)
 var _sleep_after_scar := false                 # true: died outside, the night still has to run
+var _awaiting_scar := false                    # true between losing a bounce and picking the scar
 
 func seed_rng(value: int) -> void:
 	rng.seed = value
@@ -363,6 +371,7 @@ func _lose_bounce(then_sleep: bool) -> void:
 		go_to("res://scenes/game_over.tscn", "res://scenes/main_menu.tscn")
 		return
 	_sleep_after_scar = then_sleep
+	_awaiting_scar = true
 	if scar_choices().is_empty():
 		continue_after_scar()
 	else:
@@ -382,11 +391,16 @@ func scar_choices(count: int = 3) -> Array[String]:
 	return free.slice(0, count)
 
 func pick_scar(id: String) -> void:
+	if not _awaiting_scar:
+		return
 	if SCARS.has(id) and not has_scar(id):
 		scars.append(id)
 	continue_after_scar()
 
 func continue_after_scar() -> void:
+	if not _awaiting_scar:   # a second click / call must not run the night twice
+		return
+	_awaiting_scar = false
 	if _sleep_after_scar:
 		_sleep_after_scar = false
 		sleep()

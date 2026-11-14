@@ -27,7 +27,7 @@ Night events live in `data/events.json`. You don't need to touch any code.
 | `health` | `"health": 3` | heal or hurt (stays between 1 and 10) |
 | `skip_expedition` | `true` | storm: the player can't go outside tomorrow |
 | `rad_mult` | `2.0` | radiation builds this many times faster tomorrow |
-| `bonus_crate` | `true` | an extra crate tomorrow |
+| `bonus_crate` | `true` | +50% loot from crates tomorrow |
 | `damage_room` | `true` | a random room with a building gets damaged (repair costs 3 scrap) |
 | `repair_room` | `true` | repairs one damaged room for free |
 

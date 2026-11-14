@@ -31,7 +31,7 @@ func _ready() -> void:
 	_box.add_child(_go)
 	_wait = UIKit.button("Wait inside", Vector2(160, 24), 10)
 	_wait.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_wait.pressed.connect(GameState.wait_inside)
+	_wait.pressed.connect(_wait_inside)
 	_box.add_child(_wait)
 
 	if OS.is_debug_build():
@@ -65,7 +65,7 @@ func _refresh() -> void:
 	if gs.tomorrow_rad_mult > 1.0:
 		notes.append("Storm: radiation x%s today" % str(gs.tomorrow_rad_mult))
 	if gs.bonus_crate:
-		notes.append("A stranger left a bonus crate out there")
+		notes.append("Stranger's supplies: +50% loot today")
 	_note.text = "  ".join(notes)
 	_note.visible = not notes.is_empty()
 	_go.disabled = gs.skip_expedition
@@ -73,4 +73,9 @@ func _refresh() -> void:
 	_wait.visible = gs.skip_expedition
 
 func _go_outside() -> void:
+	_go.disabled = true
 	get_tree().change_scene_to_file("res://scenes/expedition.tscn")
+
+func _wait_inside() -> void:
+	_wait.disabled = true   # one night per click
+	GameState.wait_inside()

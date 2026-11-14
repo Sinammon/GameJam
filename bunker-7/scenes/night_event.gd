@@ -66,6 +66,8 @@ func _wide_button(text: String) -> Button:
 	return b
 
 func _choose(i: int) -> void:
+	if not _options_box.visible:   # already chose
+		return
 	var before: Dictionary = GameState._snapshot()
 	var text: String = GameState.choose_event_option(i)
 	var after: Dictionary = GameState._snapshot()

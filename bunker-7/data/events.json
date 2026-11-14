@@ -32,7 +32,7 @@
 			"title": "Stranger's radio message",
 			"description": "A weak voice: \"I left supplies out there for anyone still alive...\"",
 			"options": [
-				{"label": "Follow it", "text": "Tomorrow there is a bonus crate out there.", "effects": {"bonus_crate": true}},
+				{"label": "Follow it", "text": "Tomorrow the crates out there hold extra supplies (+50% loot).", "effects": {"bonus_crate": true}},
 				{"label": "Ignore it", "text": "Could be a trap. You turn the radio off.", "effects": {}}
 			]
 		},

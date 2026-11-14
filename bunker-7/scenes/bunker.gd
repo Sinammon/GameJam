@@ -170,6 +170,7 @@ func _add_room(id: String, rect: Rect2) -> void:
 			continue
 		var b := _small_button("%s\n%s" % [gs.BUILDINGS[b_id].name, _cost_lines(gs.BUILDINGS[b_id].cost)])
 		b.disabled = not gs.can_build(b_id)
+		b.tooltip_text = str(gs.BUILDINGS[b_id].get("desc", ""))
 		b.pressed.connect(func(): GameState.build(b_id))
 		buttons.add_child(b)
 
@@ -187,12 +188,15 @@ func _building(room: Control, b_id: String, text: String, damaged: bool) -> void
 		block.add_child(l)
 		node = block
 	node.position = Vector2(BUILDING_X.get(b_id, 40), FLOOR_Y - node.size.y)
-	node.tooltip_text = text
+	node.tooltip_text = text if b_id == "cot" else "%s: %s" % [text, gs_desc(b_id)]
 	node.mouse_filter = Control.MOUSE_FILTER_PASS
 	if damaged:
 		node.modulate = Color(0.5, 0.45, 0.45)
 	room.add_child(node)
 	room.move_child(node, 0)   # behind labels and buttons
+
+func gs_desc(b_id: String) -> String:
+	return str(GameState.BUILDINGS[b_id].get("desc", ""))
 
 func _small_button(text: String) -> Button:
 	var b := UIKit.button(text, Vector2(BUTTON_W, 21), 7)
@@ -210,5 +214,10 @@ func _cost_lines(cost: Dictionary) -> String:
 			parts.append("%d %s" % [int(cost[kind]), kind])
 	return " ".join(parts)
 
+var _slept := false
+
 func _sleep() -> void:
+	if _slept:   # one night per click, even if the scene change is still pending
+		return
+	_slept = true
 	GameState.sleep()
