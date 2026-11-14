@@ -10,6 +10,9 @@ var player_inside := false
 var _confirm_left := 0.0
 
 func _ready() -> void:
+	if Art.sprite(self, "res://art/world_clean/obj_hatch.png", 3.0):
+		$Sprite.visible = false
+		$Frame.visible = false
 	body_entered.connect(func(b): if b.is_in_group("player"): player_inside = true)
 	body_exited.connect(func(b): if b.is_in_group("player"): player_inside = false)
 

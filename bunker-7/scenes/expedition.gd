@@ -26,6 +26,17 @@ var radiation := 0.0
 var ended := false           # true once banking or dying has started (only one may ever run)
 var rad_mult := 1.0
 var surface_rows: Array[int] = []
+var use_art_tiles := false   # false = placeholder tileset from the scene
+
+const TILES_TEX := "res://art/world_clean/tiles_outside.png"
+# tiles_outside.png atlas (4x2)
+const T_DIRT := Vector2i(0, 0)
+const T_GRASS := Vector2i(1, 0)
+const T_ASPHALT := Vector2i(3, 0)
+const T_GRAVEL := Vector2i(1, 1)
+const T_SCRAP := Vector2i(2, 1)
+const T_TOXIC := Vector2i(3, 1)
+const AREA_COLS := 60        # suburb | market | depot, one third of the map each
 
 @onready var ground: TileMapLayer = $Ground
 @onready var hatch: Area2D = $Hatch
@@ -42,6 +53,8 @@ var msg_tween: Tween
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.35, 0.4, 0.38))
 	rad_mult = GSBridge.radiation_multiplier()
+	build_background()
+	use_art_tiles = build_tileset()
 	build_terrain()
 	hatch.position = Vector2(HATCH_X, surface_y(HATCH_X))
 	player.position = hatch.position + Vector2(0, -2)
@@ -53,7 +66,93 @@ func _ready() -> void:
 	update_hud()
 	msg_label.text = ""
 
+# --- background --------------------------------------------------------------
+
+# Parallax layers, back to front. The camera never moves vertically (the world is
+# one screen tall), so only x scrolls. Near layers: one panel per area, side by
+# side, scroll 0.8 so all three are crossed over the 2880 px level.
+# far: mirrored copies so the repeat is seamless. Missing textures are skipped
+# and the plain Sky rect stays.
+func build_background() -> void:
+	var sky := Art.texture("res://art/world_clean/bg_sky.png")
+	if sky:
+		$Sky.visible = false
+		_parallax(0.1, [sky], 0.0, false, Color(1, 1, 1))
+	var far := Art.texture("res://art/world_clean/bg_far.png")
+	if far:
+		_parallax(0.4, [far], -14.0, true, Color(0.8, 0.75, 0.75))
+	var near: Array[Texture2D] = []
+	for area in ["suburb", "market", "depot"]:
+		var t := Art.texture("res://art/world_clean/bg_near_%s.png" % area)
+		if t:
+			near.append(t)
+	if near.size() == 3:
+		_parallax(0.8, near, -26.0, false, Color(0.62, 0.58, 0.6))
+
+var _bg_layers := 0
+
+# tint darkens the layer so the player and crates stand out against it.
+func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Color) -> void:
+	var layer := Parallax2D.new()
+	layer.modulate = tint
+	layer.scroll_scale = Vector2(scroll, 1.0)
+	layer.z_index = -10
+	add_child(layer)
+	move_child(layer, _bg_layers)   # behind everything, in call order
+	_bg_layers += 1
+	var x := 0.0
+	# enough panels to cover what the camera can show at this scroll speed
+	var need := (WORLD_W - 480.0) * scroll + 480.0
+	var i := 0
+	while x < need:
+		var tex: Texture2D = textures[i % textures.size()]
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.centered = false
+		s.position = Vector2(x, y)
+		s.flip_h = mirror and i % 2 == 1
+		layer.add_child(s)
+		x += tex.get_width()
+		i += 1
+
 # --- terrain ---------------------------------------------------------------
+
+# Builds a TileSet from tiles_outside.png. Alternative 0 of each tile has
+# collision, alternative 1 has none (deep fill). Returns false if the art is missing.
+func build_tileset() -> bool:
+	var tex := Art.texture(TILES_TEX)
+	if tex == null:
+		return false
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	ts.add_physics_layer()
+	ts.set_physics_layer_collision_layer(0, 1)
+	var src := TileSetAtlasSource.new()
+	src.texture = tex
+	src.texture_region_size = Vector2i(TILE, TILE)
+	var square := PackedVector2Array([Vector2(-8, -8), Vector2(8, -8), Vector2(8, 8), Vector2(-8, 8)])
+	ts.add_source(src, 0)
+	for y in 2:
+		for x in 4:
+			var c := Vector2i(x, y)
+			src.create_tile(c)
+			src.create_alternative_tile(c, 1)
+			var td := src.get_tile_data(c, 0)
+			td.add_collision_polygon(0)
+			td.set_collision_polygon_points(0, 0, square)
+	ground.tile_set = ts
+	return true
+
+# Which art tile goes where: grass in the suburb, gravel/asphalt at the market,
+# scrap and toxic dirt at the depot; dirt with a few stones below.
+func art_tile(x: int, y: int) -> Vector2i:
+	var n := (x * 7 + y * 13) % 11   # cheap deterministic noise
+	if y == surface_rows[x]:
+		match x / AREA_COLS:
+			0: return T_GRASS
+			1: return T_ASPHALT if surface_rows[x] == BASE_ROW and n < 7 else T_GRAVEL
+			_: return T_TOXIC if n == 0 else T_SCRAP
+	return T_DIRT
 
 func build_terrain() -> void:
 	# Surface row per column: flat, plus triangle hills (1 tile steps at most).
@@ -70,8 +169,11 @@ func build_terrain() -> void:
 		for y in range(surface_rows[x], BOTTOM_ROW):
 			# Tile 0 (atlas 0,0) = solid ground with collision, tile 1 = dirt (no collision).
 			# Surface and exposed hill sides are solid so they can't be walked through.
-			var atlas := Vector2i(0, 0) if y <= solid_to else Vector2i(1, 0)
-			ground.set_cell(Vector2i(x, y), 0, atlas)
+			var solid := y <= solid_to
+			if use_art_tiles:
+				ground.set_cell(Vector2i(x, y), 0, art_tile(x, y), 0 if solid else 1)
+			else:
+				ground.set_cell(Vector2i(x, y), 0, Vector2i(0, 0) if solid else Vector2i(1, 0))
 
 # y (px) of the top of the ground at world x
 func surface_y(x: float) -> float:
@@ -131,12 +233,18 @@ func spawn_last_stand_pack() -> void:
 	shape.shape = rect
 	shape.position = Vector2(0, -9)
 	pack.add_child(shape)
-	var glow := ColorRect.new()          # placeholder: glowing yellow backpack
-	glow.color = Color(1.0, 0.9, 0.2)
-	glow.position = Vector2(-5, -12)
-	glow.size = Vector2(10, 12)
-	pack.add_child(glow)
+	var art := Art.sprite(pack, "res://art/world_clean/obj_last_stand_pack.png", 1.0)
+	if art == null:
+		var glow := ColorRect.new()          # placeholder: glowing yellow backpack
+		glow.color = Color(1.0, 0.9, 0.2)
+		glow.position = Vector2(-5, -12)
+		glow.size = Vector2(10, 12)
+		pack.add_child(glow)
 	add_child(pack)
+	if art:   # gentle pulse so it reads as "your stuff"
+		var tw := pack.create_tween().set_loops()
+		tw.tween_property(art, "modulate", Color(1.4, 1.3, 0.8), 0.6)
+		tw.tween_property(art, "modulate", Color(1, 1, 1), 0.6)
 
 # --- radiation, death, banking ---------------------------------------------
 

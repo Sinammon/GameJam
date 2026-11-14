@@ -229,3 +229,6 @@ func test_terrain() -> void:
 	p.global_position = Vector2(2800, ex.surface_y(2800) - 2)
 	await frames(30)
 	check(p.is_on_floor(), "far right has ground")
+	# art present in the repo: survivor sprite and art tileset are used
+	check(p.sprite != null and not p.body_rect.visible, "survivor sprite replaces placeholder")
+	check(ex.use_art_tiles, "art tileset used")

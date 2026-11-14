@@ -7,6 +7,23 @@ const TAKE_ORDER := ["circuits", "scrap", "concrete", "wood"]
 
 var contents := {}   # kind -> amount left inside
 
+const TEX_CLOSED := "res://art/world_clean/obj_crate_closed.png"
+const TEX_OPEN := "res://art/world_clean/obj_crate_open.png"
+var art: Sprite2D = null   # null = placeholder ColorRect "Sprite"
+
+func _ready() -> void:
+	art = Art.sprite(self, TEX_CLOSED)
+	if art:
+		$Sprite.visible = false
+
+# Looks opened (art, or a darker placeholder box).
+func show_open() -> void:
+	if art and ResourceLoader.exists(TEX_OPEN):
+		art.texture = load(TEX_OPEN)
+		art.offset = Vector2(-floorf(art.texture.get_width() / 2.0), -art.texture.get_height())
+	else:
+		$Sprite.color = Color(0.3, 0.25, 0.2)
+
 # far: 0.0 (next to the hatch) .. 1.0 (far right edge). loot_mult comes from GameState.
 func setup(far: float, loot_mult: float) -> void:
 	var count := maxi(1, roundi(randi_range(2, 4) * loot_mult))
@@ -33,7 +50,7 @@ func interact(player: Node) -> void:
 		return
 	var got := take_into(contents, player)
 	if is_empty():
-		$Sprite.color = Color(0.3, 0.25, 0.2)   # looks opened
+		show_open()
 		player.say(", ".join(got))
 	else:
 		player.say(", ".join(got) + " (full, loot left in crate)")

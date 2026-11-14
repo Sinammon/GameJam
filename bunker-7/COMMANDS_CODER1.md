@@ -23,6 +23,9 @@
 - When several things are in reach, E uses the nearest one that still has something in it; the hatch always comes last, so loot lying in the hatch is picked up before banking.
 - After `bank_loot` the player is frozen until GameState changes the scene. The scene never changes scenes itself.
 
+## Art
+Survivor (`actors/player.gd`, SpriteFrames built in code from `art/characters_clean/survivor_*`: idle, walk, jump by velocity, a short pickaxe swing when looting, collapse on death), crates, hatch, Last Stand Pack (`actors/art.gd` helper), parallax background (sky 0.1, far city 0.4 mirrored, one near panel per area at 0.8: suburb, market, depot) and the ground TileSet (built at runtime from `tiles_outside.png`). Every texture is optional: if one is missing the old placeholder shape is used.
+
 ## Contract usage
 All GameState access goes through `scenes/gs_bridge.gd` (`GSBridge`). Every call is guarded with `has_method`, so a missing function logs one warning and uses the default (radiation x1, loot x1, carry 12, speed +0, no pack) instead of crashing. Return values are type-checked and items dicts are cleaned to the four keys as ints.
 Read: get_radiation_multiplier, get_loot_multiplier, get_carry_limit, get_move_speed_bonus, get_last_stand_pack (read once when the expedition starts). Not used yet: get_dig_speed_bonus (no digging yet), has_air_filter, has_reinforced_door (bunker-side effects).

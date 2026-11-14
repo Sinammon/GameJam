@@ -2,6 +2,8 @@
 #   Godot --headless --path bunker-7 --script res://tools/make_tiles.gd
 # Generates art/world/tiles_placeholder.png (2 tiles, 16x16) and art/world/tileset_placeholder.tres.
 # Tile 0 (atlas 0,0) = solid ground, WITH collision. Tile 1 (atlas 1,0) = dirt, NO collision.
+# This placeholder set is only the FALLBACK now: scenes/expedition.gd build_tileset() makes the
+# real TileSet at runtime from art/world_clean/tiles_outside.png (alt 0 = collision, alt 1 = none).
 extends SceneTree
 
 func _init() -> void:
