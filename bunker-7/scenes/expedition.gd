@@ -10,8 +10,10 @@ const BOTTOM_ROW := 19       # fill dirt down to here
 const HATCH_X := 48.0
 
 # Radiation per second (percent). Grows the further right of the hatch you are.
-const RAD_NEAR := 1.5
-const RAD_FAR := 4.5
+# Tuned so a straight round trip to the farthest crate (~54 s of walking at
+# 100 px/s) costs about 85% on Normal: possible, but no time to dawdle.
+const RAD_NEAR := 0.8
+const RAD_FAR := 2.4
 
 # Hills: [center column, half width in columns, height in tiles]
 const HILLS := [[40, 9, 2], [75, 12, 3], [110, 8, 2], [140, 14, 3], [165, 6, 1]]
