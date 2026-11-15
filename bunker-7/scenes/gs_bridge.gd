@@ -64,6 +64,20 @@ static func has_air_filter() -> bool:
 static func has_reinforced_door() -> bool:
 	return _flag("has_reinforced_door")
 
+# V2, optional (C2 may add these later; quiet defaults until then).
+# Backpack tier 1..4 (12/16/20/24 slots).
+static func backpack_tier() -> int:
+	if not has("get_backpack_tier"):
+		return 1
+	return clampi(int(_num("get_backpack_tier", 1)), 1, 4)
+
+# Player hit points in half-hearts (10 = 5 hearts).
+static func max_health() -> int:
+	for m in ["get_max_health", "max_health"]:
+		if has(m):
+			return clampi(int(_num(m, 10)), 2, 40)
+	return 10
+
 # Always returns {} or {"items": {ITEM_KINDS: int}, "position": Vector2}.
 # A pack with nothing in it, or with garbage data, counts as no pack.
 static func last_stand_pack() -> Dictionary:
@@ -96,4 +110,4 @@ static func bank_loot(items: Dictionary) -> void:
 	_call("bank_loot", [clean_items(items)])
 
 static func player_died(items: Dictionary, position: Vector2) -> void:
-	_call("player_died", [clean_items(items), position])
+	_call("player_died", [clean_items(items), position])   # contract unchanged (reason stays local)

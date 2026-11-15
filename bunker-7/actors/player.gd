@@ -6,6 +6,8 @@ extends CharacterBody2D
 signal message(text: String)   # HUD shows these
 signal items_changed
 signal collapse_done           # emitted when the death "animation" ends
+signal hurt(amount: int, source: String)
+signal out_of_health(reason: String)   # health hit 0; the expedition runs the death sequence
 
 const BASE_SPEED := 100.0
 const JUMP_VELOCITY := -290.0
@@ -16,6 +18,13 @@ var dead := false
 var frozen := false            # true after banking: no more input
 var speed := BASE_SPEED
 var carry_limit := 12
+var death_reason := ""         # "radiation", "zombie", ... kept for the HUD death line
+var health: Node = null        # actors/health.gd, created in _ready
+var _stun_left := 0.0          # > 0 after knockback: input doesn't steer
+
+const HealthScript := preload("res://actors/health.gd")
+const KNOCKBACK_SPEED := 170.0
+const KNOCKBACK_TIME := 0.25
 
 @onready var interact_area: Area2D = $InteractArea
 @onready var body_rect: ColorRect = $Body
@@ -24,17 +33,23 @@ const ART_DIR := "res://art/characters_clean/survivor_%s_%d.png"
 # animation -> [frames, fps, loop]
 const ANIMS := {
 	"idle": [4, 4.0, true], "walk": [4, 8.0, true], "jump": [4, 0.0, false],
-	"mine": [4, 10.0, false], "collapse": [4, 4.5, false],
+	"mine": [4, 10.0, false], "collapse": [4, 4.5, false], "hurt": [2, 8.0, false],
 }
 const COLLAPSE_TIME := 0.9     # seconds before collapse_done (art or not)
 
 var sprite: AnimatedSprite2D = null   # null = placeholder rectangle
-var _action_left := 0.0                # > 0 while a one-shot "mine" plays
+var _action_left := 0.0                # > 0 while a one-shot "mine"/"hurt" plays
+var _action_anim := "mine"
 
 func _ready() -> void:
 	# Upgrades don't change mid-expedition, so read them once.
 	speed = BASE_SPEED * (1.0 + GSBridge.move_speed_bonus())
 	carry_limit = GSBridge.carry_limit()
+	health = HealthScript.new()
+	health.name = "Health"
+	add_child(health)
+	health.setup(GSBridge.max_health())
+	health.depleted.connect(_on_depleted)
 	_build_sprite()
 
 # Builds the survivor SpriteFrames. Any missing frame drops that animation;
@@ -80,7 +95,7 @@ func _process(delta: float) -> void:
 	if sprite == null or dead:
 		return
 	_action_left = maxf(0.0, _action_left - delta)
-	if velocity.x != 0.0:
+	if velocity.x != 0.0 and _stun_left <= 0.0:
 		sprite.flip_h = velocity.x < 0.0
 	if not is_on_floor() and sprite.sprite_frames.has_animation("jump"):
 		_play("jump")
@@ -88,27 +103,81 @@ func _process(delta: float) -> void:
 		# crouch, rise, peak, fall by vertical speed
 		sprite.frame = 1 if velocity.y < -120.0 else (2 if velocity.y < 60.0 else 3)
 	elif _action_left > 0.0:
-		_play("mine")
+		_play(_action_anim)
 	elif absf(velocity.x) > 1.0:
 		_play("walk")
 	else:
 		_play("idle")
-	if not sprite.is_playing() and sprite.animation != "jump" and sprite.animation != "mine":
+	if not sprite.is_playing() and not sprite.animation in ["jump", "mine", "hurt"]:
 		sprite.play()
 
 # Short pickaxe swing when something is looted.
-func play_action() -> void:
-	if sprite and sprite.sprite_frames.has_animation("mine"):
-		_action_left = 0.4
-		_play("mine")
+func play_action(anim := "mine", time := 0.4) -> void:
+	if sprite and sprite.sprite_frames.has_animation(anim):
+		_action_left = time
+		_action_anim = anim
+		_play(anim)
 		sprite.set_frame_and_progress(0, 0.0)
-		sprite.play("mine")
+		sprite.play(anim)
+
+# Hotbar tool used (left click). Axe/pickaxe swing; trees, mining and combat
+# connect to Inventory.tool_used for the actual effect.
+func use_tool(tool_id: String) -> void:
+	if dead or frozen:
+		return
+	if tool_id in ["axe", "pickaxe"]:
+		play_action()
+
+# --- health ------------------------------------------------------------------
+
+# amount in half-hearts. from_pos (optional) = where the hit came from, for knockback.
+# Returns true if it landed (i-frames swallow repeated hits, except radiation).
+func take_damage(amount: int, source: String, from_pos: Variant = null) -> bool:
+	if dead or frozen or health == null:
+		return false
+	if not health.take_damage(amount, source):
+		return false
+	hurt.emit(amount, source)
+	if dead:
+		return true   # this hit was the last one
+	_flash()
+	if from_pos is Vector2:
+		knockback(signf(global_position.x - from_pos.x))
+	if source != "radiation":
+		play_action("hurt", 0.3)
+	return true
+
+# Pushes the player away (dir -1 = left, +1 = right) with a small hop.
+func knockback(dir: float, force := KNOCKBACK_SPEED) -> void:
+	if dead or frozen:
+		return
+	velocity.x = (dir if dir != 0.0 else 1.0) * force
+	if is_on_floor():
+		velocity.y = -force * 0.6
+	_stun_left = KNOCKBACK_TIME
+
+func _flash() -> void:
+	var node: CanvasItem = body_rect
+	if sprite:
+		node = sprite
+	var tw := create_tween()
+	for i in 3:
+		tw.tween_property(node, "modulate", Color(1.6, 0.5, 0.5, 0.6), 0.05)
+		tw.tween_property(node, "modulate", Color(1, 1, 1, 1), 0.05)
+
+func _on_depleted(source: String) -> void:
+	death_reason = source
+	out_of_health.emit(source)
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 	if dead or frozen:
 		velocity.x = 0.0
+		move_and_slide()
+		return
+	if _stun_left > 0.0:   # knocked back: keep the push, no steering
+		_stun_left -= delta
 		move_and_slide()
 		return
 	if Input.is_action_just_pressed("jump") and is_on_floor():
@@ -180,10 +249,12 @@ func clear_items() -> void:
 # Collapse: plays survivor_collapse (holds the last frame), or tips the placeholder
 # rectangle over. collapse_done fires after COLLAPSE_TIME either way.
 # Only the visual changes; the collision box stays upright so it can't clip the floor.
-func die() -> void:
+func die(reason := "") -> void:
 	if dead:
 		return
 	dead = true
+	if reason != "":
+		death_reason = reason
 	if sprite and sprite.sprite_frames.has_animation("collapse"):
 		_play("collapse")
 		sprite.modulate = Color(1.0, 0.75, 0.6)   # radiation-sick tint
