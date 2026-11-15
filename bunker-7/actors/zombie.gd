@@ -4,8 +4,10 @@ extends CharacterBody2D
 # No pathfinding: walks, falls, hops 1-block steps. Never steps into the hatch
 # safe zone (|x - safe_x| < safe_radius). Passes through the player and other
 # zombies (collides with the world only); hits are distance checks.
-# Art: art/characters_clean/zombie_{walk,attack,death,hurt}_N.png, else a
-# green-grey box with two bright eyes.
+# Art: art/characters_clean/zombie_{walk,attack,hurt}_N.png (face right, flipped
+# for left), else a green-grey box with two bright eyes. No death frames: dying
+# holds the last hurt frame, tints it dark green, sinks and fades (zombie_death_N
+# is still used if it ever exists).
 
 signal died(zombie: Node)
 
@@ -31,6 +33,7 @@ const KNOCKBACK := 90.0
 const STEP_JUMP := -235.0        # enough for a 1-block step, not for 2
 const DROP_CHANCE := 0.3
 const DEATH_TIME := 0.8
+const DEATH_TINT := Color(0.45, 0.6, 0.35)   # dead zombie (no death frames): dark sickly green
 
 var state := State.IDLE
 var hp := MAX_HP
@@ -46,6 +49,7 @@ var _wander_dir := 1.0
 var _wander_left := 0.0
 var sprite: AnimatedSprite2D = null
 var body: Node2D = null          # placeholder visual
+var eyes: AnimatedSprite2D = null   # glow overlay on the sprite (see _add_glow)
 
 func setup(p: Node, hatch_x: float, radius: float, floor_fn: Callable, mult := 1.0) -> void:
 	player = p
@@ -76,6 +80,7 @@ func _build_visual() -> void:
 		sprite.sprite_frames = sf
 		sprite.centered = false
 		add_child(sprite)
+		_add_glow(sf)
 		_play("walk")
 		return
 	body = Node2D.new()
@@ -99,6 +104,48 @@ func _build_visual() -> void:
 		eye.add_to_group("light_glow")   # Lighting boosts self_modulate so the eyes stay bright in the dark
 		body.add_child(eye)
 
+# Glowing eyes as a second sprite on top: only the bright yellow-green pixels of each
+# frame (the eyes, and the goggle lenses of the walk frames). In group light_glow so Lighting keeps them
+# bright in the dark. Needs a texture readback; skipped where that fails (web).
+static var _glow_cache := {}   # SpriteFrames of the first zombie, reused
+
+func _add_glow(sf: SpriteFrames) -> void:
+	var key := "zombie"
+	if not _glow_cache.has(key):
+		_glow_cache[key] = _glow_frames(sf)
+	var gf: SpriteFrames = _glow_cache[key]
+	if gf == null:
+		return
+	eyes = AnimatedSprite2D.new()
+	eyes.name = "Eyes"
+	eyes.sprite_frames = gf
+	eyes.centered = false
+	eyes.add_to_group("light_glow")
+	sprite.add_child(eyes)
+
+static func _glow_frames(sf: SpriteFrames) -> SpriteFrames:
+	var gf := SpriteFrames.new()
+	gf.remove_animation("default")
+	var any := false
+	for anim in sf.get_animation_names():
+		gf.add_animation(anim)
+		for i in sf.get_frame_count(anim):
+			var img := sf.get_frame_texture(anim, i).get_image()
+			if img == null or img.is_empty():
+				return null
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_RGBA8)
+			var out := Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8)
+			for y in img.get_height():
+				for x in img.get_width():
+					var c := img.get_pixel(x, y)
+					if c.a > 0.5 and c.g > 0.7 and c.b < 0.45 and c.r > 0.45 and c.g >= c.r * 0.95:
+						out.set_pixel(x, y, c)
+						any = true
+			gf.add_frame(anim, ImageTexture.create_from_image(out))
+	return gf if any else null
+
 func _play(anim: String) -> void:
 	if sprite == null or not sprite.sprite_frames.has_animation(anim):
 		return
@@ -106,6 +153,15 @@ func _play(anim: String) -> void:
 		sprite.play(anim)
 	var tex := sprite.sprite_frames.get_frame_texture(anim, 0)
 	sprite.offset = Vector2(-floorf(tex.get_width() / 2.0), -tex.get_height())
+
+# Keeps the glow sprite on the same frame as the body.
+func _sync_glow() -> void:
+	if eyes == null:
+		return
+	eyes.animation = sprite.animation
+	eyes.frame = sprite.frame
+	eyes.flip_h = sprite.flip_h
+	eyes.offset = sprite.offset
 
 func is_dead() -> bool:
 	return state == State.DEAD
@@ -234,7 +290,18 @@ func _die() -> void:
 	var tw := create_tween()
 	if sprite == null:
 		tw.tween_property(body, "rotation", -facing * PI / 2.0, 0.3)
-	tw.tween_interval(DEATH_TIME * 0.5)
+		tw.tween_interval(DEATH_TIME * 0.5)
+	elif not sprite.sprite_frames.has_animation("death"):
+		_play("hurt")
+		sprite.pause()
+		sprite.frame = sprite.sprite_frames.get_frame_count("hurt") - 1
+		if eyes:
+			eyes.visible = false   # the light goes out
+		tw.tween_interval(0.15)   # let the hit flash finish first
+		tw.tween_property(sprite, "modulate", DEATH_TINT, 0.2)
+		tw.parallel().tween_property(sprite, "position:y", 3.0, DEATH_TIME * 0.5 - 0.15)
+	else:
+		tw.tween_interval(DEATH_TIME * 0.5)
 	tw.tween_property(self, "modulate:a", 0.0, DEATH_TIME * 0.5)
 	tw.tween_callback(queue_free)
 	died.emit(self)
@@ -247,6 +314,7 @@ func _update_visual() -> void:
 		if state in [State.IDLE, State.CHASE]:
 			_play("walk")
 			sprite.speed_scale = 0.4 if absf(velocity.x) < 1.0 else (1.5 if state == State.CHASE else 0.8)
+		_sync_glow()
 	elif body:
 		body.scale.x = facing
 		# windup telegraph: lean forward and eyes glow brighter

@@ -3,23 +3,29 @@ extends Node2D
 # Hits shake it and throw wood chips; at 0 hp it falls over, drops logs (wood
 # pickups) once, and a stump stays behind (stumps ignore further hits).
 # Origin = bottom centre of the trunk, on the ground.
-# Art: obj_trees.png, 6 objects left to right: tall tree, medium tree, short
-# broken tree, stump, fallen log, bush (cut by Art.split_sheet). Missing = drawn.
+# Art (art/world_clean/, each optional, missing = drawn placeholder):
+#   small  = obj_tree_dead.png   (50x80, a bare dead tree, 3 hits)
+#   medium = obj_tree_oak.png / obj_tree_oak_orange.png (~80x112, 5 hits; orange
+#            on every third column so rows of oaks don't all look the same)
+#   large  = obj_tree_pine.png   (82x128, 7 hits)
+#   stump  = obj_stump.png after it falls; logs drop as wood pickups drawn with obj_logs.png.
+# (obj_tree_sapling / obj_bush / obj_branch exist too, unused for now.)
 
 signal felled(tree: Node2D)
 
 const Chips := preload("res://actors/chips.gd")
 const PickupScript := preload("res://actors/pickup.gd")
-const SHEET := "res://art/world_clean/obj_trees.png"   # optional art # lint:ignore res_path
+const ART := "res://art/world_clean/%s.png"
 
-# size -> hp (axe hits), logs dropped (before the loot multiplier), placeholder trunk height/width,
-# sheet index of its picture
+# size -> hp (axe hits), logs dropped (before the loot multiplier), placeholder trunk
+# height/width (also the hit box: the trunk, not the crown), picture(s)
 const SIZES := {
-	"small": {"hp": 3.0, "logs": 1, "h": 30, "w": 6, "art": 2},
-	"medium": {"hp": 5.0, "logs": 2, "h": 48, "w": 8, "art": 1},
-	"large": {"hp": 7.0, "logs": 3, "h": 64, "w": 10, "art": 0},
+	"small": {"hp": 3.0, "logs": 1, "h": 30, "w": 6, "art": ["obj_tree_dead"]},
+	"medium": {"hp": 5.0, "logs": 2, "h": 48, "w": 8, "art": ["obj_tree_oak", "obj_tree_oak_orange"]},
+	"large": {"hp": 7.0, "logs": 3, "h": 64, "w": 10, "art": ["obj_tree_pine"]},
 }
-const STUMP_ART := 3
+const STUMP_ART := "obj_stump"
+const LOG_ART := "obj_logs"
 const FALL_TIME := 0.6
 
 var size := "medium"
@@ -42,28 +48,16 @@ func setup(tree_size: String, p: Node, floor_fn: Callable, mult := 1.0) -> void:
 
 func _ready() -> void:
 	z_index = -1   # behind the player and crates
-	var pieces := Art.split_sheet(SHEET)
 	_trunk = Node2D.new()
 	add_child(_trunk)
-	var idx: int = SIZES[size]["art"]
-	if idx < pieces.size():
-		var s := Sprite2D.new()
-		s.texture = pieces[idx]
-		s.centered = false
-		s.offset = Vector2(-floorf(s.texture.get_width() / 2.0), -s.texture.get_height())
-		_trunk.add_child(s)
-	else:
+	var arts: Array = SIZES[size]["art"]
+	var pick: String = arts[0] if arts.size() == 1 or posmod(int(position.x / 16.0), 3) != 0 else arts[1]
+	if Art.sprite(_trunk, ART % pick) == null:
 		_trunk.draw.connect(_draw_trunk)
 	_stump = Node2D.new()
 	_stump.visible = false
 	add_child(_stump)
-	if STUMP_ART < pieces.size():
-		var st := Sprite2D.new()
-		st.texture = pieces[STUMP_ART]
-		st.centered = false
-		st.offset = Vector2(-floorf(st.texture.get_width() / 2.0), -st.texture.get_height())
-		_stump.add_child(st)
-	else:
+	if Art.sprite(_stump, ART % STUMP_ART) == null:
 		var r := ColorRect.new()
 		r.color = Color(0.32, 0.22, 0.14)
 		r.position = Vector2(-5, -6)
@@ -133,5 +127,5 @@ func _drop_logs(dir: float) -> void:
 		var p: Node2D = PickupScript.new()
 		p.position = global_position + Vector2((i - (n - 1) / 2.0) * 5.0, -10)
 		get_parent().add_child(p)
-		p.setup("wood", player, floor_at, Vector2(randf_range(-30, 30), -120))
+		p.setup("wood", player, floor_at, Vector2(randf_range(-30, 30), -120), ART % LOG_ART)
 	felled.emit(self)

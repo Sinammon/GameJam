@@ -3,7 +3,8 @@ extends Node2D
 # Pops out, falls onto the ground (floor_at(x) -> y of the ground top) and goes
 # into the backpack when the player walks over it. A full backpack leaves it lying
 # there (with a "Backpack full!" message, at most once every few seconds).
-# Picture: art/world_clean/pickup_<kind>.png, else a small coloured box.
+# Picture: `picture` if given and present (e.g. obj_logs.png for tree logs), else
+# art/world_clean/pickup_<kind>.png, else a small coloured box.
 
 const PICK_DIST := 16.0         # px between the player's feet and the item
 const MAGNET_DIST := 36.0       # closer than this (and room in the pack): drifts to the player
@@ -23,13 +24,13 @@ var grounded := false
 var _age := 0.0
 var _msg_left := 0.0
 
-func setup(item_kind: String, p: Node, floor_fn: Callable, pop := Vector2.ZERO) -> void:
+func setup(item_kind: String, p: Node, floor_fn: Callable, pop := Vector2.ZERO, picture := "") -> void:
 	kind = item_kind
 	player = p
 	floor_at = floor_fn
 	vel = pop
 	add_to_group("pickups")
-	if Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null:
+	if (picture == "" or Art.sprite(self, picture) == null) and Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null:
 		var box := ColorRect.new()
 		box.color = COLORS.get(kind, Color.WHITE)
 		box.position = Vector2(-3, -6)

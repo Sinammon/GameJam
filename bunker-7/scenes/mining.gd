@@ -16,7 +16,10 @@ extends Node2D
 # Tile pictures: source 0 = tiles_outside.png (surface + dirt), source 1 =
 # tiles_ore.png (4x2: scrap ore, concrete, circuit vein, bedrock / planks, pipe,
 # bones, toxic crystal). A missing sheet is drawn here as a placeholder image.
-# Cracks: tiles_crack.png (4 stages left to right) or drawn lines.
+# tiles_ore.png is built by art_tools/clean_art.py (ORE_ATLAS) from the artist's ore
+# sheets: silver ore, grey stone chunks, gold ore, darkened plain stone (bedrock),
+# dirt-with-rocks recoloured wood / rust / bone, green toxic veins.
+# Cracks: tiles_crack.png (64x16, 4 stages left to right) or drawn lines.
 
 signal block_broken(cell: Vector2i, kind: String)
 
@@ -28,8 +31,8 @@ const REACH := 34.0              # px from the player's chest to a block centre
 const PICK_DAMAGE := 1.0         # per pickaxe hit, x (1 + dig_speed_bonus)
 
 const OUTSIDE_TEX := "res://art/world_clean/tiles_outside.png"
-const ORE_TEX := "res://art/world_clean/tiles_ore.png"   # optional art # lint:ignore res_path
-const CRACK_TEX := "res://art/world_clean/tiles_crack.png"   # optional art # lint:ignore res_path
+const ORE_TEX := "res://art/world_clean/tiles_ore.png"   # optional art
+const CRACK_TEX := "res://art/world_clean/tiles_crack.png"   # optional art
 
 # kind -> [source, atlas coords] (dirt/surface use the expedition's art_tile()).
 const ORE_ATLAS := {

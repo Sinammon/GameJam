@@ -116,6 +116,8 @@ func _ready() -> void:
 	inventory.name = "Inventory"
 	add_child(inventory)
 	inventory.setup(player)
+	player.held_tool = inventory.selected_tool()
+	inventory.selection_changed.connect(func(_i: int) -> void: player.held_tool = inventory.selected_tool())
 	swing = SwingScript.new()
 	swing.name = "ToolSwing"
 	add_child(swing)

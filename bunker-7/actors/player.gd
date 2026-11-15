@@ -2,6 +2,8 @@ extends CharacterBody2D
 # The survivor: walk, jump, carry loot, interact with E.
 # Art: AnimatedSprite2D built from art/characters_clean/survivor_*.png. If the
 # frames are missing, the old orange ColorRect ("Body") is shown instead.
+# Swings: chop (axe), mine (pickaxe). flashlight_idle while the flashlight is held
+# and standing still. climb (seen from behind) is loaded for later, not played yet.
 
 signal message(text: String)   # HUD shows these
 signal items_changed
@@ -22,6 +24,7 @@ var death_reason := ""         # "radiation", "zombie", ... kept for the HUD dea
 var health: Node = null        # actors/health.gd, created in _ready
 var _stun_left := 0.0          # > 0 after knockback: input doesn't steer
 var facing := 1.0              # -1 left, +1 right (last walking direction or swing aim)
+var held_tool := ""            # selected hotbar tool (set by the expedition); "flashlight" changes the idle pose
 
 const HealthScript := preload("res://actors/health.gd")
 const KNOCKBACK_SPEED := 170.0
@@ -35,7 +38,7 @@ const ART_DIR := "res://art/characters_clean/survivor_%s_%d.png"
 const ANIMS := {
 	"idle": [4, 4.0, true], "walk": [4, 8.0, true], "jump": [4, 0.0, false],
 	"mine": [4, 10.0, false], "collapse": [4, 4.5, false], "hurt": [2, 8.0, false],
-	"chop": [4, 10.0, false],
+	"chop": [4, 10.0, false], "flashlight_idle": [4, 4.0, true], "climb": [4, 8.0, true],
 }
 # tool -> swing animation (played by use_tool if the frames exist)
 const TOOL_ANIMS := {"axe": "chop", "pickaxe": "mine"}
@@ -109,9 +112,11 @@ func _process(delta: float) -> void:
 		_play(_action_anim)
 	elif absf(velocity.x) > 1.0:
 		_play("walk")
+	elif held_tool == "flashlight" and sprite.sprite_frames.has_animation("flashlight_idle"):
+		_play("flashlight_idle")
 	else:
 		_play("idle")
-	if not sprite.is_playing() and not sprite.animation in ["jump", "mine", "hurt"]:
+	if not sprite.is_playing() and not sprite.animation in ["jump", "mine", "chop", "hurt"]:
 		sprite.play()
 
 # Short pickaxe swing when something is looted. Returns false without art.
