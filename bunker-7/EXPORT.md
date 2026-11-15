@@ -35,3 +35,5 @@ viewport 960x540 (2x of 480x270) and enable fullscreen button. The Web preset is
 - Template-free sanity check: `$G --headless --path bunker-7 --export-pack "Web" ../build/test/bunker7.pck`
   then `$G --headless --main-pack build/test/bunker7.pck` boots the packed game (done: boots with no errors,
   events.json is inside, tools/ are not).
+- V3 (survival, Old Mine, Bomb Crater, Crafts / Book) is not exported yet: re-export the Web build and check the
+  mine darkness, the book scrolling and the new keys (Q / R) in the browser. No new file writes or threads.

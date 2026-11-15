@@ -28,7 +28,14 @@
 10. Bunker screenshots: `shot_bunker_overview.json`, `shot_bunker_ladder.json` (climbing down the shaft), `shot_bunker_popup.json`
    (utility workbench), `shot_bunker_upgrade.json` (upgrade bench), `shot_bunker_door.json` (locked door), same command as 7.
 
+11. V3 survival test (filter, stove, meters, every location, crater death, book, playthroughs):
+   `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_survival.gd`
+12. V3 screenshots: `SHOT_MODE=mine python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_v3.json --godot-bin "$GODOT"`
+   (modes morning, bunker, stations, utility, hud, mine, crater, book; picture in `user://shot_v3.png`).
+
 ## Controls
+- V3: Q eats, R drinks (best item carried; dirty water and raw food are risky). Canteen slot drinks, medkit slot
+  uses a bandage. Pause menu > Crafts / Book lists every item, station, recipe and place.
 - Bunker: A/D walk, E uses the station you stand at (a key box with a label shows above it), Enter / click presses the
   focused popup button, Esc or E closes a popup (never the pause menu at the same time), Esc otherwise pauses.
   E at the foot of the ladder climbs up to the expedition (once a day).
