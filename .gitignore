@@ -26,3 +26,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.tmp
+
+# Local-only docs (prompts, plans)
+_local_docs/
