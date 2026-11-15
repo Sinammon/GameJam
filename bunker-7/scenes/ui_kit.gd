@@ -63,11 +63,25 @@ static func background(parent: Control, color: Color = BG) -> ColorRect:
 
 # ---------------------------------------------------------------- text
 
+# The game font (Pixelify Sans, see FONT_NOTES.md) is drawn on a 10-unit pixel grid, so it is
+# only crisp at sizes that are whole multiples of 10 (or of 5 on a 2x/4x window). Every size in
+# the game goes through fs(), which snaps the old "any size" values to those steps.
+static func fs(size: int) -> int:
+	if size <= 11:
+		return 10
+	if size <= 17:
+		return 15
+	if size <= 24:
+		return 20
+	if size <= 39:
+		return 30
+	return 50
+
 static func label(text: String, size: int = 10, color: Color = TEXT, align: int = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = align as HorizontalAlignment
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", fs(size))
 	l.add_theme_color_override("font_color", color)
 	return l
 
@@ -75,7 +89,7 @@ static func label(text: String, size: int = 10, color: Color = TEXT, align: int 
 static func outlined(text: String, size: int = 10, color: Color = TEXT, align: int = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
 	var l := label(text, size, color, align)
 	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02))
-	l.add_theme_constant_override("outline_size", 3)
+	l.add_theme_constant_override("outline_size", 2)
 	return l
 
 # [icon] value  -- e.g. icon_text("icon_water", "Water", "5"). Without the icon: "Water 5".
@@ -164,7 +178,7 @@ static func button(text: String, min_size: Vector2 = Vector2(120, 24), size: int
 	b.text = text
 	b.custom_minimum_size = min_size
 	b.focus_mode = Control.FOCUS_NONE   # keeps keyboard cheats from clicking buttons
-	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_size_override("font_size", fs(size))
 	var normal := _tex_box("world_clean/ui_button_normal", 7, 5)
 	var pressed := _tex_box("world_clean/ui_button_pressed", 7, 5)
 	if normal != null and pressed != null:

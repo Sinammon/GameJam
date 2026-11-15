@@ -172,8 +172,8 @@ func _t(file: String) -> Texture2D:
 	return _tex[path]
 
 func _num(pos: Vector2, text: String, color := Color(0.95, 0.95, 0.9), align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
-	draw_node.draw_string(_font, pos + Vector2(1, 1), text, align, width, 8, Color(0, 0, 0, 0.8))
-	draw_node.draw_string(_font, pos, text, align, width, 8, color)
+	draw_node.draw_string(_font, pos + Vector2(1, 1), text, align, width, UIKit.fs(8), Color(0, 0, 0, 0.8))
+	draw_node.draw_string(_font, pos, text, align, width, UIKit.fs(8), color)
 
 func _draw_hud() -> void:
 	if player == null:
