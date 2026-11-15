@@ -57,6 +57,9 @@ const STATION_X := {
 const BUILD_X := {"purifier": 96, "stove": 142, "filter": 192, "garden": 132, "radio": 120}
 # Art tried in order for a building (V3 station art from bunker_stations2 first, has-file fallback).
 const BUILD_ART := {"purifier": ["obj_water_filter", "bld_purifier"], "stove": ["obj_stove", "bld_stove"]}
+# ... and the picture in front of those while it works: the filter with water in it, the stove's fire.
+const BUILD_ART_ON := {"purifier": "obj_water_filter_on", "stove": "obj_stove_lit"}
+const SHELF_X := {"utility": 168}   # a pantry shelf (obj_shelf, scenery) between the stove and the air filter
 const LAMP_X := {"bedroom": 88, "utility": 117, "garden": 117, "storage": 76, "radio": 78}   # painted lamps
 const ROOM_COLORS := {
 	"bedroom": Color(0.30, 0.24, 0.20), "utility": Color(0.22, 0.27, 0.30), "garden": Color(0.20, 0.30, 0.20),
@@ -316,6 +319,8 @@ func _add_room(id: String, reachable: bool) -> void:
 		holder.position = Vector2(shaft_x() + 34, SURFACE_Y + 3 - 66) - room.position
 		room.add_child(holder)
 		_building(holder, "door", 0, GameState.is_built("door"), damaged)
+	if SHELF_X.has(id):
+		_put(room, "obj_shelf", Vector2(SHELF_X[id], 66))
 	# stations
 	for kind in STATION_X.get(id, {}):
 		var sx: float = x + STATION_X[id][kind]
@@ -340,6 +345,12 @@ func _add_room(id: String, reachable: bool) -> void:
 		l.size = Vector2(ROOM_W, 10)
 		room.add_child(l)
 
+# The filter shows water while there is dirty water to filter; the stove burns while it works.
+func _station_on(b_id: String) -> bool:
+	if b_id == "purifier":
+		return GameState.is_working("purifier") and GameState.dirty_water > 0
+	return GameState.is_working(b_id)
+
 func _station_art(room: Node2D, file: String, cx: float, size: Vector2, fallback: Color) -> void:
 	if _put(room, file, Vector2(cx, 66)) == null:
 		_rect(room, Rect2(cx - size.x / 2.0, 66 - size.y, size.x, size.y), fallback)
@@ -347,7 +358,10 @@ func _station_art(room: Node2D, file: String, cx: float, size: Vector2, fallback
 # A building on the floor: the bld_ art (or a labelled block); not built yet = a faint ghost.
 func _building(room: Node2D, b_id: String, cx: float, built: bool, damaged: bool) -> void:
 	var node: CanvasItem = null
-	for file in BUILD_ART.get(b_id, ["bld_" + b_id]):
+	var files: Array = BUILD_ART.get(b_id, ["bld_" + b_id]).duplicate()
+	if built and not damaged and BUILD_ART_ON.has(b_id) and _station_on(b_id):
+		files.push_front(BUILD_ART_ON[b_id])
+	for file in files:
 		node = _put(room, file, Vector2(cx, 66))
 		if node != null:
 			break
@@ -789,7 +803,7 @@ func _fill_popup() -> void:
 		"locker":
 			popup.title("Locker")
 			popup.add_node(UIKit.icon_row([
-				["icon_water", "Water", str(gs.water)], ["icon_food", "Meals", str(gs.food)],
+				[UIKit.item_icon("water"), "Water", str(gs.water)], [UIKit.item_icon("food"), "Meals", str(gs.food)],
 				["icon_dirty_water", "Dirty", str(gs.dirty_water)], ["icon_raw_meat", "Meat", str(gs.raw_meat)],
 				["icon_mushroom", "Mush.", str(gs.mushroom)]], 9, 8))
 			popup.add_node(UIKit.icon_row([
@@ -841,12 +855,15 @@ func _fill_popup() -> void:
 		"purifier":
 			popup.title("Water Filter")
 			popup.line("Dirty water in, clean water out (1 for 1). At night it filters up to %d on its own." % gs.FILTER_NIGHT_MAX, UIKit.DIM)
-			popup.line("Dirty water: %d   Clean water: %d" % [gs.dirty_water, gs.water])
+			popup.add_node(UIKit.icon_row([["icon_dirty_water", "Dirty water", str(gs.dirty_water)],
+				[UIKit.item_icon("water"), "Clean water", str(gs.water)]], 9, 12))
 			popup.button_row([["Filter 1", "filter_1", gs.can_filter(), _do.bind("filter", "1")],
 				["Filter all", "filter_all", gs.can_filter(), _do.bind("filter", "99")]], 70)
 		"stove":
 			popup.title("Stove")
-			popup.line("Wood is the fuel. Raw meat %d, mushrooms %d, dirty water %d, wood %d." % [gs.raw_meat, gs.mushroom, gs.dirty_water, gs.wood], UIKit.DIM)
+			popup.line("Wood is the fuel.", UIKit.DIM)
+			popup.add_node(UIKit.icon_row([["icon_raw_meat", "Raw meat", str(gs.raw_meat)], ["icon_mushroom", "Mushrooms", str(gs.mushroom)],
+				["icon_dirty_water", "Dirty water", str(gs.dirty_water)], ["icon_wood", "Wood", str(gs.wood)]], 9, 8))
 			for id in gs.RECIPES:
 				var r: Dictionary = gs.RECIPES[id]
 				popup.row(r.name, "%s -> %s" % [gs.cost_text(r["in"]), gs.cost_text(r["out"])], "Cook", "cook_" + id,

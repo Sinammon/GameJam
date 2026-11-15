@@ -23,6 +23,20 @@ static func tex(name: String) -> Texture2D:
 		return load(path) as Texture2D
 	return null
 
+# Icon file (in world_clean, no extension) for an item kind or a book / station id: the survival
+# art first (clean water bottle, cooked meat ...), then icon_<kind>. Missing files fall through.
+const ICON_ALIAS := {
+	"water": ["icon_clean_water", "icon_water"], "food": ["icon_cooked_meat", "icon_food"],
+	"cook_meat": ["icon_cooked_meat"], "mushroom_stew": ["icon_mushroom"], "boil_water": ["icon_clean_water"],
+	"filter": ["icon_clean_water"], "purifier": ["obj_water_filter", "bld_purifier"], "stove": ["obj_stove"],
+	"locker": ["icon_canned_food"],
+}
+static func item_icon(kind: String) -> String:
+	for n in ICON_ALIAS.get(kind, []):
+		if ResourceLoader.exists("res://art/world_clean/%s.png" % n):
+			return n
+	return "icon_" + kind
+
 # A picture at its own pixel size (scale = whole-number zoom), or null if missing.
 static func picture(name: String, scale: int = 1) -> TextureRect:
 	var t := tex(name)

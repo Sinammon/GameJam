@@ -84,7 +84,7 @@ func _entry(e: Dictionary) -> Control:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 4)
 	box.add_child(head)
-	var pic := UIKit.picture("world_clean/icon_" + str(e.id))
+	var pic := UIKit.picture("world_clean/" + UIKit.item_icon(str(e.id)))
 	if pic != null:
 		pic.custom_minimum_size = Vector2(12, 12)
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

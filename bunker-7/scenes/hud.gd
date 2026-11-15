@@ -229,7 +229,7 @@ func _draw_icon(file: String, at: Vector2, fallback: Color, size := Vector2(10, 
 func _draw_supplies(at: Vector2) -> void:
 	var y := at.y
 	for k in ["water", "food"]:
-		var icon := _t("icon_" + k)
+		var icon := _t(UIKit.item_icon(k))
 		if icon:
 			var s := minf(12.0 / maxf(icon.get_height(), 1.0), 1.0)
 			draw_node.draw_texture_rect(icon, Rect2(Vector2(at.x, y), (icon.get_size() * s).floor()), false)
@@ -386,7 +386,7 @@ func _draw_backpack_grid() -> void:
 		_slot(r, false, i >= unlocked)
 		if i < stacks.size():
 			var kind: String = stacks[i][0]
-			var tex := _t("icon_" + kind)
+			var tex := _t(UIKit.item_icon(kind))
 			if tex:
 				draw_node.draw_texture(tex, r.position + ((r.size - tex.get_size()) / 2.0).floor())
 			else:

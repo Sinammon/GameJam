@@ -4,7 +4,7 @@ extends Node2D
 # into the backpack when the player walks over it. A full backpack leaves it lying
 # there (with a "Backpack full!" message, at most once every few seconds).
 # Picture: `picture` if given and present (e.g. obj_logs.png for tree logs), else
-# art/world_clean/pickup_<kind>.png, else a small coloured box.
+# art/world_clean/pickup_<kind>.png, else icon_<kind>.png (raw meat ...), else a small coloured box.
 
 const PICK_DIST := 16.0         # px between the player's feet and the item
 const MAGNET_DIST := 36.0       # closer than this (and room in the pack): drifts to the player
@@ -32,7 +32,8 @@ func setup(item_kind: String, p: Node, floor_fn: Callable, pop := Vector2.ZERO, 
 	floor_at = floor_fn
 	vel = pop
 	add_to_group("pickups")
-	if (picture == "" or Art.sprite(self, picture) == null) and Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null:
+	if (picture == "" or Art.sprite(self, picture) == null) and Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null \
+			and Art.sprite(self, "res://art/world_clean/icon_%s.png" % kind) == null:   # V3 items: their icon
 		var box := ColorRect.new()
 		box.color = COLORS.get(kind, Color.WHITE)
 		box.position = Vector2(-3, -6)
