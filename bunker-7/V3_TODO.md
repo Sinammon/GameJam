@@ -54,12 +54,14 @@ loses), not by hand. Hand-playtest and tune the numbers below.
 - Event pictures for the new events (`event_<id>.png`, 88x64).
 
 ## Art still needed (designer; prompts are in the local-only ASSET_PROMPTS_V4.md, not in git)
-- Mine: `bg_mine`, `mine_set` (tile_mine_floor, tile_mine_wall, tile_mine_ceiling, obj_mine_support, obj_mine_cart, obj_mine_lamp, obj_mine_exit, obj_mushroom, obj_water_pool), `bat_fly` (4 frames), `rat_run` (4 frames).
-- Crater: `bg_crater`, `crater_set` (tile_crater_ground, tile_crater_under, obj_bomb_shell, obj_car_wreck, obj_crater_crystal, obj_supply_crate, obj_girder, obj_crater_exit, obj_ash_pile).
-- Survival icons `icon_survival`: icon_dirty_water, icon_clean_water, icon_raw_meat, icon_cooked_meat, icon_mushroom, icon_canned_food, icon_bandage, icon_tin_can, icon_bucket.
-- Stations `bunker_stations2`: obj_water_filter, obj_water_filter_on, obj_stove, obj_stove_lit, obj_shelf.
+- Done (V4 "gameNewPlaces" batch, cleaned by `art_tools/clean_art.py`, see art/ART_INDEX.md): `bg_mine`, `bg_crater`,
+  mine tiles + props (`tiles_mine` atlas, support, cart, lamp, rope-ladder exit, mushroom, water pool + drip),
+  crater tiles + props (`tiles_crater` atlas, bomb shell, car wreck, crystal, supply crate, girder, ladder exit, ash pile),
+  `bat_fly` (scenery bats in the mine), `rat_run` (redone), the 9 survival icons, filter / stove (on and lit) and the shelf.
+  Not used yet: `icon_tin_can`, `icon_bucket` (no such items in the game).
 - Older redo list: survivor chop and flashlight matching the real survivor (5b, 5c), zombie attack/hurt style, hatch art match.
-- Process new art with `art_tools/clean_art.py` (magenta to transparent), then wire in with a has-file fallback.
+- Process new art with `art_tools/clean_art.py` (magenta to transparent; "parts" sheets cut objects from listed regions), then
+  wire in with a has-file fallback.
 
 ## Release
 - The last web export (walkable bunker, before font and audio) is already uploaded to itch.io. The Web export templates are installed only on the lead's Mac (see EXPORT.md to install them elsewhere). Re-export after the above lands and re-test the web build (lights, zombies, audio, font).

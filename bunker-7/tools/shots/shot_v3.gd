@@ -59,6 +59,12 @@ func _bunker_stage(b: Node2D) -> void:
 		"book":
 			b.pause_menu.open()
 			b.pause_menu.open_book()
+			if OS.get_environment("SHOT_BOOK") != "":   # e.g. SHOT_BOOK=recipes:0 (section : scroll px)
+				var a := OS.get_environment("SHOT_BOOK").split(":")
+				await _wait(0.2)
+				b.pause_menu.book.show_section(a[0])
+				await _wait(0.2)
+				b.pause_menu.book.scroll.scroll_vertical = int(a[1]) if a.size() > 1 else 0
 		_:
 			b.walker.position.x = b.station_x("locker")
 
@@ -69,6 +75,8 @@ func _ex_stage(ex: Node2D) -> void:
 	p.add_item("raw_meat", 1)
 	p.add_item("scrap", 3)
 	var x: float = ex.HATCH_X + (150.0 if mode == "hud" else 260.0)
+	if OS.get_environment("SHOT_DX") != "":   # e.g. SHOT_DX=0 shows the exit
+		x = ex.HATCH_X + float(OS.get_environment("SHOT_DX"))
 	p.global_position = Vector2(x, ex.floor_y(x) - 1)
 	if mode == "mine":
 		ex.inventory.select(2)   # flashlight
