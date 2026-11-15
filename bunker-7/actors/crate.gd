@@ -17,9 +17,25 @@ func _ready() -> void:
 	if art:
 		$Sprite.visible = false
 
+# V3: a different closed picture (the crater's military supply crate, obj_supply_crate). It has no
+# open picture, so it just darkens when opened. Keeps the current look when the file is missing.
+var _own_art := false
+func use_art(path: String) -> void:
+	var t := Art.texture(path)
+	if t == null:
+		return
+	if art == null:
+		art = Art.sprite(self, path)
+		$Sprite.visible = false
+	art.texture = t
+	art.offset = Vector2(-floorf(t.get_width() / 2.0), -t.get_height())
+	_own_art = true
+
 # Looks opened (art, or a darker placeholder box).
 func show_open() -> void:
-	if art and ResourceLoader.exists(TEX_OPEN):
+	if art and _own_art:
+		art.modulate = Color(0.55, 0.52, 0.5)
+	elif art and ResourceLoader.exists(TEX_OPEN):
 		art.texture = load(TEX_OPEN)
 		art.offset = Vector2(-floorf(art.texture.get_width() / 2.0), -art.texture.get_height())
 	else:

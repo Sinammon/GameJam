@@ -92,6 +92,7 @@ var warning_sound: AudioStreamPlayer = null   # optional: audio/sfx_rad_warning.
 var pause_menu: Node = null  # scenes/pause_menu.tscn (Esc), if present
 var surface_rows: Array[int] = []   # natural surface; mining.floor_rows is the current one
 var use_art_tiles := false   # false = drawn placeholder tiles (tiles_outside.png missing)
+var own_tiles := false       # V3: the location's own ground atlas (art "tiles") is used, no tint
 var zombies_enabled := true  # tests switch this off before adding the scene
 var mining: Node2D = null
 var swing: Node2D = null
@@ -108,6 +109,8 @@ const T_ASPHALT := Vector2i(3, 0)
 const T_GRAVEL := Vector2i(1, 1)
 const T_SCRAP := Vector2i(2, 1)
 const T_TOXIC := Vector2i(3, 1)
+const T_ROCK := Vector2i(2, 0)      # location atlases (tiles_mine.png): rock above a tunnel
+const T_CEILING := Vector2i(0, 1)   # ... and the tunnel's ceiling row
 
 @onready var ground: TileMapLayer = $Ground
 @onready var hatch: Area2D = $Hatch
@@ -126,12 +129,15 @@ func _ready() -> void:
 	mining.name = "Mining"
 	mining.ground = ground
 	add_child(mining)
+	own_tiles = _own_tiles_path() != ""
+	if own_tiles:
+		mining.outside_path = _own_tiles_path()
 	use_art_tiles = build_tileset()
 	if int(loc.get("ceiling", 0)) > 0 and not Art.texture("res://art/world_clean/%s.png" % str(loc.get("art", {}).get("backdrop", ""))):
 		LocationDressing.cave_wall(self, mining._outside_tex, loc.get("bg_tint", Color(0.3, 0.27, 0.3)))
 	mining.ore_cfg = loc.get("ores", {})
 	build_terrain()
-	ground.modulate = loc.get("ground_tint", Color(1, 1, 1))
+	ground.modulate = Color(1, 1, 1) if own_tiles else loc.get("ground_tint", Color(1, 1, 1))
 	mining.setup(ground, surface_rows, player, GSBridge.loot_multiplier(), GSBridge.dig_speed_bonus())
 	hatch.position = Vector2(HATCH_X, surface_y(HATCH_X))
 	player.position = hatch.position + Vector2(0, -2)
@@ -238,6 +244,8 @@ func spawn_sources() -> void:
 				s.position = Vector2(x, surface_y(x))
 				add_child(s)
 				mining.protect_col(col)
+				if str(entry[0]) == "water_pool" and int(loc.get("ceiling", 0)) > 0:   # drips from the rock above
+					LocationDressing.hang(self, "obj_water_drip", x, float(ceiling_rows[col] * TILE))
 	var rats := int(loc.get("critters", 0))
 	for side in [-1, 1]:
 		for i in rats:
@@ -249,6 +257,12 @@ func spawn_sources() -> void:
 			c.position = Vector2(x, surface_y(x))
 			c.setup(player, floor_y, 24.0, WORLD_W - 24.0, GSBridge.loot_multiplier())
 			add_child(c)
+	# bats: scenery only (no collision, no damage), flitting under the tunnel roof
+	for i in int(loc.get("bats", 0)):
+		var bx := rng.randf_range(TILE * 8.0, WORLD_W - TILE * 8.0)
+		var col := clampi(int(bx / TILE), 0, COLS - 1)
+		var top := float(ceiling_rows[col] * TILE) if int(loc.get("ceiling", 0)) > 0 else 40.0
+		LocationDressing.bat(self, Vector2(bx, top + rng.randf_range(10.0, 30.0)), rng.randf())
 
 # A random column on `side` in areas a0..a1, not near the exit, a crate, the pack or another source.
 func _free_col(rng: RandomNumberGenerator, side: int, a0: int, a1: int, used: Dictionary) -> int:
@@ -465,7 +479,16 @@ func build_terrain() -> void:
 		var top := maxi(0, surface_rows[x] - ceiling) if ceiling > 0 else 0
 		ceiling_rows.append(top)
 		for y in top:
-			ground.set_cell(Vector2i(x, y), 1, mining.ORE_ATLAS["bedrock"])
+			if own_tiles:   # the location's rock, its lowest row the ceiling strip (tiles_outside layout)
+				ground.set_cell(Vector2i(x, y), 0, T_CEILING if y == top - 1 else T_ROCK)
+			else:
+				ground.set_cell(Vector2i(x, y), 1, mining.ORE_ATLAS["bedrock"])
+
+# art/world_clean/<art.tiles>.png when the location has its own ground atlas, else "".
+func _own_tiles_path() -> String:
+	var name := str(loc.get("art", {}).get("tiles", ""))
+	var path := "res://art/world_clean/%s.png" % name
+	return path if name != "" and ResourceLoader.exists(path) else ""
 
 # y (px) of the top of the natural ground at world x (before any digging)
 func surface_y(x: float) -> float:
@@ -524,6 +547,8 @@ func spawn_crates() -> void:
 		c.setup(distance_frac(x), loot_mult, cfg)
 		if i == far_i and loc.get("guaranteed") is Dictionary:
 			c.add_guaranteed(loc.guaranteed)
+		if loc.get("art", {}).has("crate"):   # the crater's military supply crates
+			c.use_art("res://art/world_clean/%s.png" % str(loc.art.crate))
 		if location != "surface" and c.art == null:   # placeholder box: tint per location
 			c.get_node("Sprite").color = Color(0.55, 0.5, 0.3) if location == "mine" else Color(0.45, 0.55, 0.35)
 		mining.protect_x(x, 1)

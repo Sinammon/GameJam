@@ -1,10 +1,82 @@
 class_name LocationDressing
 extends RefCounted
-# Looks for the V3 locations (Old Mine, Bomb Crater) until their real art exists.
-# Every function first tries art/world_clean/<name>.png (so the designer's files drop in by name)
-# and otherwise draws a placeholder from coloured shapes. Called by scenes/expedition.gd.
+# Looks for the V3 locations (Old Mine, Bomb Crater).
+# Every function first tries art/world_clean/<name>.png (the designer's files, by name) and
+# otherwise draws a placeholder from coloured shapes. Called by scenes/expedition.gd.
+# Tall art (mine support, exit ladders) is stretched to the tunnel / screen height by repeating its
+# middle band (NinePatchRect, tiled), so the pixels stay crisp.
 
 const ART := "res://art/world_clean/%s.png"
+const TUCK := 5.0   # px the mine supports and lamps reach up into the ceiling row (behind its drips)
+# px a prop's picture sits into the ground (its rubble base hides the tile edge; hills step 16 px)
+const SINK := {"obj_bomb_shell": 3.0, "obj_car_wreck": 3.0, "obj_girder": 2.0, "obj_ash_pile": 2.0, "obj_crater_crystal": 2.0}
+
+# tex drawn `height` px tall, bottom at (0,0), centred: the top `top` and bottom `bottom` shares
+# of the picture are kept, the band between them repeats (tiled) to fill the height.
+static func stretch(parent: Node, tex: Texture2D, height: float, top: float, bottom: float) -> NinePatchRect:
+	var r := NinePatchRect.new()
+	r.texture = tex
+	var th := tex.get_height()
+	r.patch_margin_top = int(th * top)
+	r.patch_margin_bottom = int(th * bottom)
+	r.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE
+	var h := maxf(height, float(th))
+	r.size = Vector2(tex.get_width(), roundf(h))
+	r.position = Vector2(-floorf(tex.get_width() / 2.0), -roundf(h))
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(r)
+	return r
+
+# A picture hanging from the ceiling (top edge at ceil_y), e.g. the drips over a mine pool.
+static func hang(ex: Node2D, art: String, x: float, ceil_y: float) -> Sprite2D:
+	var tex := Art.texture(ART % art)
+	if tex == null:
+		return null
+	var s := Sprite2D.new()
+	s.name = art
+	s.texture = tex
+	s.centered = false
+	s.position = Vector2(x - floorf(tex.get_width() / 2.0), ceil_y - 2.0)
+	s.z_index = -1
+	ex.add_child(s)
+	return s
+
+# Scenery bat: flaps along a slow wavy path under the roof and turns at random. No collision,
+# no damage (there is no bat enemy). Nothing without the bat_fly frames.
+class Bat extends AnimatedSprite2D:
+	var home := Vector2.ZERO
+	var t := 0.0
+	var speed := 26.0
+	var dir := 1.0
+	var span := 90.0
+	func _process(delta: float) -> void:
+		t += delta
+		position.x += dir * speed * delta
+		if absf(position.x - home.x) > span:
+			dir = -signf(position.x - home.x)
+		position.y = home.y + sin(t * 2.3) * 6.0 + sin(t * 0.7) * 4.0
+		flip_h = dir < 0.0
+
+static func bat(ex: Node2D, at: Vector2, phase: float) -> Node2D:
+	var frames := Art.frames("res://art/characters_clean/bat_fly")
+	if frames.is_empty():
+		return null
+	var sf := SpriteFrames.new()
+	sf.set_animation_speed("default", 9.0 + phase * 3.0)
+	for f in frames:
+		sf.add_frame("default", f)
+	var b := Bat.new()
+	b.name = "Bat"
+	b.sprite_frames = sf
+	b.position = at
+	b.home = at
+	b.t = phase * 10.0
+	b.dir = -1.0 if phase < 0.5 else 1.0
+	b.span = 60.0 + phase * 80.0
+	b.z_index = 1
+	ex.add_child(b)
+	b.play()
+	return b
 
 static func _box(parent: Node, r: Rect2, c: Color) -> ColorRect:
 	var b := ColorRect.new()
@@ -52,7 +124,21 @@ static func prop(ex: Node2D, art: String, x: float, ground_y: float, ceil_y: flo
 	n.position = Vector2(x, ground_y)
 	n.z_index = -1
 	ex.add_child(n)
-	if Art.sprite(n, ART % art) != null:
+	var tex := Art.texture(ART % art)
+	if tex != null:
+		match art:
+			"obj_mine_support":   # posts stretched from the floor up to the tunnel ceiling
+				var h := ground_y - ceil_y + TUCK if ceil_y > 0.0 else float(tex.get_height())
+				stretch(n, tex, h, 0.42, 0.3)
+			"obj_mine_lamp":      # hangs from the ceiling
+				var top := -(ground_y - ceil_y) - TUCK if ceil_y > 0.0 else -60.0
+				var s := Art.sprite(n, ART % art)
+				s.offset.y = top
+				n.set_meta("lamp_at", Vector2(0, top + tex.get_height() - 6))
+			_:
+				Art.sprite(n, ART % art, SINK.get(art, 1.0))
+				if art == "obj_crater_crystal":
+					n.add_to_group("light_glow")
 		return n
 	match art:
 		"obj_mine_support":   # two posts up to the ceiling and a beam
@@ -97,7 +183,9 @@ static func exit_visual(hatch: Node2D, style: String, art: String, height: float
 	var n := Node2D.new()
 	n.name = "ExitVisual"
 	hatch.add_child(n)
-	if art != "" and Art.sprite(n, ART % art) != null:
+	var tex := Art.texture(ART % art) if art != "" else null
+	if tex != null:   # the art's opening / lit top at the top, its ladder repeated down to the floor
+		stretch(n, tex, height, 0.3 if style == "rope" else 0.12, 0.08)
 		return n
 	if style == "rope":
 		_box(n, Rect2(-1, -height, 2, height - 6), Color(0.62, 0.5, 0.3))

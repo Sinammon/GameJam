@@ -40,6 +40,8 @@ func _ready() -> void:
 	shape.position = Vector2(0, -7)
 	add_child(shape)
 	_art = Art.sprite(self, "res://art/world_clean/obj_%s.png" % kind, 1.0)
+	if _art != null and kind == "mushroom":
+		_art.add_to_group("light_glow")   # the cave mushrooms glow (Lighting keeps them bright in the dark)
 	if _art == null:
 		_art = _placeholder()
 		add_child(_art)

@@ -66,6 +66,9 @@ var loot_mult := 1.0
 var player: Node = null
 var _crack_tex: Texture2D = null
 var _outside_tex: Texture2D = null  # for the dark back wall behind dug-out blocks
+# V3: a location's own ground atlas in the tiles_outside layout (tiles_mine.png, tiles_crater.png),
+# set by the expedition before build_tileset(); falls back to tiles_outside.png when missing.
+var outside_path := OUTSIDE_TEX
 var _back: Node2D                   # draws the back wall (behind the ground, in front of the sky)
 var dug := {}                       # Vector2i -> true for every dug-out block
 var rng := RandomNumberGenerator.new()
@@ -102,8 +105,10 @@ func build_tileset() -> bool:
 	ts.tile_size = Vector2i(TILE, TILE)
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
-	var art := Art.texture(OUTSIDE_TEX) != null
-	_outside_tex = _atlas(OUTSIDE_TEX, Vector2i(4, 2))
+	if outside_path != OUTSIDE_TEX and Art.texture(outside_path) == null:
+		outside_path = OUTSIDE_TEX
+	var art := Art.texture(outside_path) != null
+	_outside_tex = _atlas(outside_path, Vector2i(4, 2))
 	if _outside_tex == null:
 		_outside_tex = ImageTexture.create_from_image(_placeholder_outside())
 	var ore := _atlas(ORE_TEX, Vector2i(4, 2))

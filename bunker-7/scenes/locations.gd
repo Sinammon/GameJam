@@ -16,8 +16,8 @@ extends RefCounted
 #   dark_dist             how much darker it gets towards the edges (0..1)
 #   zone_tint             3 tints: near / middle / far third
 #   sky                   clear colour behind everything (when there is no backdrop art)
-#   bg_tint               modulate for the reused surface parallax art ("" art = no parallax)
-#   ground_tint           modulate for the ground tiles (reused tiles_outside.png until real art exists)
+#   bg_tint               modulate for the reused surface parallax art (only without a backdrop picture)
+#   ground_tint           modulate for the reused tiles_outside.png (only without the location's own tiles)
 #   trees                 dead trees (wood) on the near and middle thirds
 #   crate_xs | crates     fixed crate x positions (px), or a crate count spread from near to far
 #   loot                  crate contents: weights for wood/concrete/scrap, count [min, max], and the
@@ -29,8 +29,10 @@ extends RefCounted
 #   critters              rats per side (hit them for raw meat)
 #   sources               [[kind, count per side, area_from, area_to], ...]: puddle, barrel, water_pool, mushroom
 #   decor                 [[name, every_n_cols], ...] props (art/world_clean/<name>.png or a drawn placeholder)
+#   bats                  scenery bats flitting under the roof (characters_clean/bat_fly_N.png; none without art)
 #   exit                  "hatch" | "rope" | "ladder": what the way home looks like
-#   art                   optional art names: backdrop (one wide picture), exit
+#   art                   optional art names: backdrop (one 480x270 picture), exit, tiles (4x2 ground atlas in
+#                         the tiles_outside layout, + rock / ceiling cells), crate (closed crate picture)
 
 const ORDER := ["surface", "mine", "crater"]
 
@@ -78,8 +80,9 @@ const LOCATIONS := {
 		"critters": 3,
 		"sources": [["water_pool", 3, 0, 2], ["mushroom", 5, 0, 2]],
 		"decor": [["obj_mine_support", 12], ["obj_mine_lamp", 20], ["obj_mine_cart", 45]],
+		"bats": 8,
 		"exit": "rope",
-		"art": {"backdrop": "bg_mine", "exit": "obj_mine_exit"},
+		"art": {"backdrop": "bg_mine", "exit": "obj_mine_exit", "tiles": "tiles_mine"},
 	},
 	"crater": {
 		"name": "Bomb Crater", "unlock_day": 4,
@@ -102,9 +105,9 @@ const LOCATIONS := {
 		"zombies": {"per_area": [1, 2, 3], "variant": "crater"},
 		"critters": 0,
 		"sources": [["puddle", 2, 0, 1]],
-		"decor": [["obj_girder", 18], ["obj_car_wreck", 31], ["obj_crater_crystal", 13]],
+		"decor": [["obj_girder", 18], ["obj_car_wreck", 31], ["obj_crater_crystal", 13], ["obj_bomb_shell", 47], ["obj_ash_pile", 22]],
 		"exit": "ladder",
-		"art": {"backdrop": "bg_crater", "exit": "obj_crater_exit"},
+		"art": {"backdrop": "bg_crater", "exit": "obj_crater_exit", "tiles": "tiles_crater", "crate": "obj_supply_crate"},
 	},
 }
 
