@@ -6,19 +6,22 @@
 3. Headless check (exit 0 = all PASS):
    `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_expedition.gd`
    It swaps GameState for a recorder (`tools/fake_game_state.gd`) and drives the player with real key events:
-   walking, jumping, crates, carry limit, the pack, banking once, dying once, and a full round trip to the farthest crate.
+   walking, jumping, crates, carry limit, the pack, banking once, dying once, round trips to the farthest crate on
+   both sides, health drain above 100%, damage and death reason, hotbar/backpack keys, Esc pause, radiation both ways.
 
 ## Controls
 - Move: A/D or Left/Right. Jump: W, Up or Space. Interact: E.
-- E near a crate opens it. E inside the hatch (left end) banks your loot.
+- Hotbar: 1-5 or mouse wheel (axe, pickaxe, flashlight, canteen, medkit). Left click uses the tool. Tab: backpack grid. Esc: pause menu.
+- E near a crate opens it. E inside the hatch (middle of the map) banks your loot.
 - E in the hatch with an empty backpack asks first ("Press E again to go inside"); a second E within 2 s goes home empty-handed. This stops an accidental E at spawn ending the day.
-- Debug builds only (editor F5 / debug export): ESC quits, F1 fills radiation to 100%. Both do nothing in a release export.
+- Debug builds only (editor F5 / debug export): F1 fills radiation to 100% (to test the health drain).
 
 ## How it plays
-- Radiation fills while you are outside the hatch: 0.8%/s next to it up to 2.4%/s at the far right, times `get_radiation_multiplier()`. Walking straight to the farthest crate (x=2750) and back takes about 56 s and costs about 88% on Normal; on Hard (x1.5) that trip kills you, so far crates are a gamble. Radiation stops counting once you bank or start dying.
-- At 100% the player collapses (0.9 s), the screen fades to black (1 s), then `player_died(items, position)` is called once, with what was carried at the moment of death.
+- World: 4800 px (10 screens), hatch in the middle (x=2408). Zones mirrored: depot | market | suburb | HATCH | suburb | market | depot. See `V2_NOTES.md`.
+- Radiation fills while you are outside the hatch: 0.8%/s next to it up to 2.8%/s at either edge, times `get_radiation_multiplier()`. Walking straight to a farthest crate (2350 px away, either side) and back takes about 49 s and costs about 87% on Normal; on Hard (x1.5) you arrive home losing hearts. Warnings (message + green vignette pulse) at 60% and 85%; a go-home arrow shows when you are more than 1.5 screens away (or off-screen at 60%+). Radiation stops counting once you bank or start dying.
+- Health: 10 half-hearts (or `get_max_health()`). At 100% radiation you lose 1 half-heart at once and then every 2 s (not in the hatch). At 0 the player collapses (0.9 s), the HUD says why, the screen fades to black (1 s + 0.8 s), then `player_died(items, position)` is called once, with what was carried at the moment of death.
 - Crates give 2-4 random wood/concrete/scrap (times loot multiplier). Circuits only in crates in the last 30% of the map (35% chance each, 3 such crates). Crates also hold supplies: 0-1 water and 0-1 food each (0-2 food in the suburb third, 0-2 water in the market third), times loot multiplier. Water and food count toward the carry limit. A full backpack leaves the leftover loot in the crate.
-- Carry limit comes from `get_carry_limit()`. HUD shows carried/limit.
+- Carry limit comes from `get_carry_limit()` (counts items). HUD shows carried/limit by the backpack icon; Tab shows the grid (stacks per material, locked slots padlocked).
 - Last Stand Pack: if `get_last_stand_pack()` has items, a yellow backpack sits on the ground at that x. E takes what fits, rarest first (circuits, scrap, water, food, concrete, wood). The rest stays in the pack for this expedition only; when the expedition ends GameState drops the pack. Dying again makes what you carry the new pack.
 - When several things are in reach, E uses the nearest one that still has something in it; the hatch always comes last, so loot lying in the hatch is picked up before banking.
 - After `bank_loot` the player is frozen until GameState changes the scene. The scene never changes scenes itself.
@@ -28,7 +31,7 @@ Survivor (`actors/player.gd`, SpriteFrames built in code from `art/characters_cl
 
 ## Contract usage
 All GameState access goes through `scenes/gs_bridge.gd` (`GSBridge`). Every call is guarded with `has_method`, so a missing function logs one warning and uses the default (radiation x1, loot x1, carry 12, speed +0, no pack) instead of crashing. Return values are type-checked and items dicts are cleaned to the six keys (wood, concrete, scrap, circuits, water, food) as ints.
-Read: get_radiation_multiplier, get_loot_multiplier, get_carry_limit, get_move_speed_bonus, get_last_stand_pack (read once when the expedition starts). Not used yet: get_dig_speed_bonus (no digging yet), has_air_filter, has_reinforced_door (bunker-side effects).
+Read: get_radiation_multiplier, get_loot_multiplier, get_carry_limit, get_move_speed_bonus, get_last_stand_pack (read once when the expedition starts). Optional V2 reads (quiet defaults if missing): get_backpack_tier (1), get_max_health / max_health (10). Not used yet: get_dig_speed_bonus (no digging yet), has_air_filter, has_reinforced_door (bunker-side effects).
 Call: bank_loot(items), player_died(items, position). Each is called at most once per expedition, never both.
 
 ## For Coder 2
