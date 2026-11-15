@@ -4,10 +4,10 @@ extends CharacterBody2D
 # No pathfinding: walks, falls, hops 1-block steps. Never steps into the hatch
 # safe zone (|x - safe_x| < safe_radius). Passes through the player and other
 # zombies (collides with the world only); hits are distance checks.
-# Art: art/characters_clean/zombie_{walk,attack,hurt}_N.png (face right, flipped
-# for left), else a green-grey box with two bright eyes. No death frames: dying
-# holds the last hurt frame, tints it dark green, sinks and fades (zombie_death_N
-# is still used if it ever exists).
+# Art: art/characters_clean/zombie_{walk,attack,hurt,death}_N.png (face right, flipped
+# for left), else a green-grey box with two bright eyes. Dying plays zombie_death once
+# (stagger, buckle, fall back, lying flat), holds the last frame, then fades. Without
+# death frames it holds the last hurt frame, sinks and fades.
 
 signal died(zombie: Node)
 
@@ -33,7 +33,7 @@ const KNOCKBACK := 90.0
 const STEP_JUMP := -235.0        # enough for a 1-block step, not for 2
 const DROP_CHANCE := 0.3
 const DEATH_TIME := 0.8
-const DEATH_TINT := Color(0.45, 0.6, 0.35)   # dead zombie (no death frames): dark sickly green
+const DEATH_HOLD := 0.25         # lying still on the last death frame before the fade
 
 var state := State.IDLE
 var hp := MAX_HP
@@ -66,7 +66,7 @@ func _ready() -> void:
 func _build_visual() -> void:
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
-	for anim in [["walk", 6.0, true], ["attack", 8.0, false], ["death", 6.0, false], ["hurt", 8.0, false]]:
+	for anim in [["walk", 6.0, true], ["attack", 8.0, false], ["death", 8.0, false], ["hurt", 8.0, false]]:
 		var tex := Art.frames(ART % anim[0])
 		if tex.is_empty():
 			continue
@@ -298,10 +298,13 @@ func _die() -> void:
 		if eyes:
 			eyes.visible = false   # the light goes out
 		tw.tween_interval(0.15)   # let the hit flash finish first
-		tw.tween_property(sprite, "modulate", DEATH_TINT, 0.2)
-		tw.parallel().tween_property(sprite, "position:y", 3.0, DEATH_TIME * 0.5 - 0.15)
+		tw.tween_property(sprite, "position:y", 3.0, DEATH_TIME * 0.5 - 0.15)
 	else:
-		tw.tween_interval(DEATH_TIME * 0.5)
+		# plays once (no loop) and stops on the lying frame; the eyes follow via _sync_glow
+		sprite.speed_scale = 1.0
+		var sf := sprite.sprite_frames
+		var anim_len := sf.get_frame_count("death") / sf.get_animation_speed("death")
+		tw.tween_interval(maxf(anim_len + DEATH_HOLD, DEATH_TIME * 0.5))
 	tw.tween_property(self, "modulate:a", 0.0, DEATH_TIME * 0.5)
 	tw.tween_callback(queue_free)
 	died.emit(self)
