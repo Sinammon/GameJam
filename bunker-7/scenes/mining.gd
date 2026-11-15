@@ -62,14 +62,20 @@ var dig_damage := PICK_DAMAGE
 var loot_mult := 1.0
 var player: Node = null
 var _crack_tex: Texture2D = null
+var _outside_tex: Texture2D = null  # for the dark back wall behind dug-out blocks
+var _back: Node2D                   # draws the back wall (behind the ground, in front of the sky)
+var dug := {}                       # Vector2i -> true for every dug-out block
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	z_index = 1
-	var img := Art.image(CRACK_TEX)
-	if img:
-		img.resize(TILE * 4, TILE, Image.INTERPOLATE_NEAREST)
-		_crack_tex = ImageTexture.create_from_image(img)
+	_back = Node2D.new()
+	_back.name = "BackWall"
+	_back.z_as_relative = false
+	_back.z_index = -2
+	add_child(_back)
+	_back.draw.connect(_draw_back)
+	_crack_tex = _atlas(CRACK_TEX, Vector2i(4, 1))
 
 func setup(layer: TileMapLayer, surface: Array[int], p: Node, mult: float, dig_bonus: float) -> void:
 	ground = layer
@@ -89,19 +95,37 @@ func build_tileset() -> bool:
 	ts.tile_size = Vector2i(TILE, TILE)
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
-	var outside := Art.image(OUTSIDE_TEX)
-	var art := outside != null
-	if outside == null:
-		outside = _placeholder_outside()
-	outside.resize(TILE * 4, TILE * 2, Image.INTERPOLATE_NEAREST)
-	var ore := Art.image(ORE_TEX)
+	var art := Art.texture(OUTSIDE_TEX) != null
+	_outside_tex = _atlas(OUTSIDE_TEX, Vector2i(4, 2))
+	if _outside_tex == null:
+		_outside_tex = ImageTexture.create_from_image(_placeholder_outside())
+	var ore := _atlas(ORE_TEX, Vector2i(4, 2))
 	if ore == null:
-		ore = _placeholder_ore(outside.get_region(Rect2i(0, 0, TILE, TILE)))
-	ore.resize(TILE * 4, TILE * 2, Image.INTERPOLATE_NEAREST)
-	for img in [outside, ore]:
-		_add_source(ts, ImageTexture.create_from_image(img))
+		var dirt := _outside_tex.get_image()   # may be null where GPU readback is missing
+		if dirt == null or dirt.is_empty():
+			dirt = _placeholder_outside()
+		dirt.convert(Image.FORMAT_RGBA8)
+		ore = ImageTexture.create_from_image(_placeholder_ore(dirt.get_region(Rect2i(0, 0, TILE, TILE))))
+	_add_source(ts, _outside_tex)
+	_add_source(ts, ore)
 	ground.tile_set = ts
 	return art
+
+# A sheet of cells x 16 px tiles. Used as is when it has exactly that size (no
+# GPU readback needed, safe on the web), else read back and scaled to fit.
+# null if the file is missing or can't be read.
+func _atlas(path: String, cells: Vector2i) -> Texture2D:
+	var tex := Art.texture(path)
+	if tex == null:
+		return null
+	var want := cells * TILE
+	if Vector2i(tex.get_size()) == want:
+		return tex
+	var img := Art.image(path)
+	if img == null:
+		return null
+	img.resize(want.x, want.y, Image.INTERPOLATE_NEAREST)
+	return ImageTexture.create_from_image(img)
 
 func _add_source(ts: TileSet, tex: Texture2D) -> void:
 	var src := TileSetAtlasSource.new()
@@ -123,7 +147,7 @@ func _placeholder_outside() -> Image:
 	var cols_ := [Color(0.42, 0.3, 0.2), Color(0.35, 0.42, 0.22), Color(0.4, 0.38, 0.35), Color(0.25, 0.25, 0.27),
 		Color(0.42, 0.3, 0.2), Color(0.45, 0.43, 0.4), Color(0.45, 0.35, 0.28), Color(0.35, 0.45, 0.2)]
 	for i in 8:
-		var r := Rect2i((i % 4) * TILE, (i / 4) * TILE, TILE, TILE)
+		var r := Rect2i((i % 4) * TILE, floori(i / 4.0) * TILE, TILE, TILE)
 		img.fill_rect(r, cols_[i])
 		img.fill_rect(Rect2i(r.position, Vector2i(TILE, 2)), (cols_[i] as Color).lightened(0.15))
 	return img
@@ -320,7 +344,9 @@ func _break(cell: Vector2i, kind: String) -> void:
 	kinds.erase(cell)
 	ground.erase_cell(cell)
 	floor_rows[cell.x] = cell.y + 1
+	dug[cell] = true
 	queue_redraw()
+	_back.queue_redraw()
 	Chips.burst(get_parent(), Vector2(cell) * TILE + Vector2(8, 8), CHIP_KIND.get(kind, "dirt"), 8)
 	var drop: Array = DROPS.get(kind, [])
 	if not drop.is_empty() and rng.randf() < drop[1]:
@@ -335,7 +361,17 @@ func spawn_pickup(item: String, at: Vector2) -> Node2D:
 	p.setup(item, player, floor_y, Vector2(randf_range(-20, 20), -80))
 	return p
 
-# --- crack overlay -------------------------------------------------------------------
+# --- back wall and crack overlay ----------------------------------------------------
+
+# A dark copy of the dirt behind every dug-out block, so holes read as holes
+# (the background art would otherwise show its painted ground there).
+func _draw_back() -> void:
+	for cell in dug:
+		var r := Rect2(Vector2(cell) * TILE, Vector2(TILE, TILE))
+		if _outside_tex:
+			_back.draw_texture_rect_region(_outside_tex, r, Rect2(0, 0, TILE, TILE), Color(0.32, 0.27, 0.27))
+		else:
+			_back.draw_rect(r, Color(0.14, 0.1, 0.08))
 
 func _draw() -> void:
 	for cell in damage:

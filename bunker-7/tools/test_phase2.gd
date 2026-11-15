@@ -83,6 +83,7 @@ func run() -> void:
 	await test_zombie_fight()
 	await test_zombie_kills_player()
 	await test_safe_zone_and_spawner()
+	await test_soak()
 	print("FAILS: %d" % fails)
 	quit(1 if fails > 0 else 0)
 
@@ -216,6 +217,10 @@ func test_mining() -> void:
 			if k == "circuits" and ex.distance_frac(cell.x * 16) < 0.6:
 				circuit_ok = false
 	check(ore_cells > 50 and circuit_ok, "terrain has ores underground (%d), circuits only far out" % ore_cells)
+	# placeholder tiles when the art is missing
+	var ph: Image = m._placeholder_ore(m._placeholder_outside().get_region(Rect2i(0, 0, 16, 16)))
+	check(ph.get_size() == Vector2i(64, 32) and ph.get_pixel(40, 8) != ph.get_pixel(8, 8), "placeholder ore atlas drawn (64x32)")
+	check(ex.ground.tile_set.get_source_count() == 2, "ground tileset: outside + ore sources")
 	# dig speed bonus shortens digging
 	fresh_gs().dig_bonus = 0.5
 	await start()
@@ -477,3 +482,31 @@ func test_safe_zone_and_spawner() -> void:
 	fresh_gs().day = 5
 	await start(true)
 	check(ex.spawner.slots.size() > day1, "day 5 has more zombie slots (%d > %d)" % [ex.spawner.slots.size(), day1])
+
+# Random keys and swings with zombies on, in all zones: nothing breaks, the
+# player stays inside the world and can always walk out of what was dug.
+func test_soak() -> void:
+	fresh_gs().max_hp = 40
+	await start(true)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var keys := [KEY_A, KEY_D, KEY_W]
+	var swings := 0
+	for spot in [ex.HATCH_X + 300, ex.HATCH_X - 900, ex.HATCH_X + 1500, ex.HATCH_X - 2100]:
+		await stand(spot)
+		for i in 300:
+			if i % 15 == 0:
+				for k in keys: key(k, false)
+				key(keys[rng.randi() % keys.size()], true)
+			if i % 7 == 0:
+				ex.inventory.select(rng.randi() % 2)
+				if ex.swing.use(ex.inventory.selected_tool()) != "":
+					swings += 1
+			p.health.hp = p.health.max_hp   # keep it about the systems, not survival
+			await frames(1)
+		for k in keys: key(k, false)
+	await frames(5)
+	var inside: bool = p.global_position.y <= (ex.BOTTOM_ROW - 1) * 16 and p.global_position.x > 0 and p.global_position.x < ex.WORLD_W
+	check(inside and not p.dead, "soak: player inside the world after random play (%s)" % str(p.global_position))
+	check(swings > 5 and ex.mining.escapable(ex.mining.floor_rows), "soak: %d swings landed, world still escapable" % swings)
+	check(ex.spawner.alive_near(p.global_position.x) <= ex.spawner.CAP, "soak: zombie cap held")

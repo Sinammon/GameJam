@@ -38,8 +38,8 @@ static func image(path: String) -> Image:
 	var tex := texture(path)
 	if tex == null:
 		return null
-	var img := tex.get_image()
-	if img == null:
+	var img := tex.get_image()   # GPU readback; may fail on some web browsers
+	if img == null or img.is_empty():
 		return null
 	if img.is_compressed():
 		img.decompress()

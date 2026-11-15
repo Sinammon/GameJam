@@ -58,7 +58,9 @@ func use(tool_id: String) -> String:
 	if _cooldown > 0.0:
 		return ""
 	_cooldown = COOLDOWN
-	var aim: Variant = get_global_mouse_position() if mouse_aim else null
+	var aim: Variant = null
+	if mouse_aim:
+		aim = get_global_mouse_position()
 	if aim_override is Vector2:
 		aim = aim_override
 	var dir: float = player.facing
