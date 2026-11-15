@@ -8,7 +8,7 @@ extends CanvasLayer
 
 signal closed
 
-const WIDTH := 236
+const WIDTH := 260
 
 var buttons := {}            # id -> Button (tests and the bunker look buttons up here)
 var is_open := true
@@ -66,7 +66,7 @@ func row(text: String, note: String, button_text: String, id: String, enabled: b
 	if note != "":
 		var n := UIKit.label(note, 7, UIKit.DIM, HORIZONTAL_ALIGNMENT_LEFT)
 		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		n.custom_minimum_size = Vector2(WIDTH - 90, 0)
+		n.custom_minimum_size = Vector2(WIDTH - 100, 0)
 		v.add_child(n)
 	var b := UIKit.button(button_text, Vector2(70, 18), 8)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER

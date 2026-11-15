@@ -38,9 +38,12 @@ const BUILDINGS := {
 	"radio":    {"name": "Radio Beacon",      "room": "radio",   "cost": {"scrap": 10}, "desc": "Calls the convoy: needed to be rescued"},
 }
 
-# Backpack tiers 1..4 (upgrade bench in the bunker). Carry limit = BACKPACK_SLOTS[tier - 1]
-# + STORAGE_BONUS once the Storage Room is unlocked + STEADY_BONUS with the Steady Hands scar.
-# BACKPACK_COSTS[t] = what it costs to go from tier t - 1 to tier t.
+# Backpack tiers 1..4 (upgrade bench in the bunker's bedroom). Carry-limit rule (one place:
+# carry_limit_for_tier):  carry = BACKPACK_SLOTS[tier - 1]           (12 / 16 / 20 / 24)
+#                               + STORAGE_BONUS if the Storage Room is unlocked   (+4)
+#                               + STEADY_BONUS with the Steady Hands scar          (+2)
+# So the tiers are the base slots and the room/scar bonuses stack on top (max 24 + 4 + 2 = 30).
+# BACKPACK_COSTS[t] = what it costs to go from tier t - 1 to tier t (all backpack costs live here).
 const BACKPACK_SLOTS := [12, 16, 20, 24]
 const BACKPACK_COSTS := {
 	2: {"scrap": 6, "wood": 4},
@@ -81,6 +84,7 @@ var backpack_tier := 1                   # 1..4, see BACKPACK_SLOTS
 var went_outside := false                # true once today's expedition started (one per day)
 var bunker_arrival := "cot"              # where the walkable bunker puts you: "cot" (new day) or "hatch" (back from outside)
 var show_tutorial := false               # true right after start_game: the bunker opens the slideshow (first time only)
+var last_banked: Dictionary = {}         # what the last bank_loot added (the bunker shows it on arrival)
 
 # One-day flags set by night events (used from Stage 4).
 var skip_expedition := false
@@ -112,6 +116,7 @@ func start_game(d: int) -> void:
 	went_outside = false
 	bunker_arrival = "cot"
 	show_tutorial = true
+	last_banked = {}
 	current_event = {}
 	last_night_summary = []
 	_pending_notes = []
@@ -177,8 +182,12 @@ func get_loot_multiplier() -> float:
 	return m
 
 func get_carry_limit() -> int:
-	return int(BACKPACK_SLOTS[get_backpack_tier() - 1]) + (STORAGE_BONUS if is_room_unlocked("storage") else 0) \
-		+ (STEADY_BONUS if has_scar("steady") else 0)
+	return carry_limit_for_tier(get_backpack_tier())
+
+# The carry-limit rule (see BACKPACK_SLOTS): tier slots + storage room bonus + Steady Hands bonus.
+func carry_limit_for_tier(tier: int) -> int:
+	return int(BACKPACK_SLOTS[clampi(tier, 1, BACKPACK_SLOTS.size()) - 1]) \
+		+ (STORAGE_BONUS if is_room_unlocked("storage") else 0) + (STEADY_BONUS if has_scar("steady") else 0)
 
 func get_backpack_tier() -> int:
 	return clampi(backpack_tier, 1, BACKPACK_SLOTS.size())
@@ -208,8 +217,12 @@ func get_last_stand_pack() -> Dictionary:
 # ---------------------------------------------------------------- CONTRACT: call
 # The expedition calls this when the player returns alive to the hatch.
 func bank_loot(items: Dictionary) -> void:
+	last_banked = {}
 	for kind in LOOT_KINDS:
-		add_item(kind, int(items.get(kind, 0)))
+		var n := maxi(0, int(items.get(kind, 0)))
+		add_item(kind, n)
+		if n > 0:
+			last_banked[kind] = n
 	last_stand_pack = {}   # the old pack is only for one expedition
 	_clear_day_flags()     # storm / bonus crate were for this expedition only
 	went_outside = true
@@ -285,6 +298,7 @@ func _end_night() -> void:
 	day += 1
 	went_outside = false
 	bunker_arrival = "cot"
+	last_banked = {}
 	changed.emit()
 	if day > MAX_DAY:
 		go_to("res://scenes/ending.tscn", "res://scenes/main_menu.tscn")

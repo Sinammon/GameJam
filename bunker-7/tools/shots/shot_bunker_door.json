@@ -1,0 +1,9 @@
+{
+  "scene_path": "res://tools/shots/shot_bunker_door.tscn",
+  "viewport_size": [480, 270],
+  "settle_frames": 10,
+  "steps": [
+    {"type": "wait_seconds", "seconds": 2.0},
+    {"type": "screenshot", "path": "user://shot_bunker_door.png", "expect": {"not_blank": true}}
+  ]
+}
