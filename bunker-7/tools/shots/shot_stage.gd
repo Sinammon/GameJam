@@ -21,6 +21,45 @@ func _stage() -> void:
 	if mode.begins_with("light_"):
 		await _light_stage(p)
 		return
+	if mode == "zombie":   # close-up: the player holding the flashlight, a zombie winding up next to them
+		var x: float = ex.HATCH_X + 400.0
+		p.global_position = Vector2(x, ex.floor_y(x) - 1)
+		p.face(1.0)
+		ex.inventory.select(2)
+		ex.camera.zoom = Vector2(2, 2)
+		p.health.invuln_left = 99.0
+		var z: Node2D = ex.spawner.spawn_at(x + 22.0)
+		ex.spawner.spawn_at(x - 64.0)   # a second one walking in from the left
+		await _frames(40)
+		if z:
+			z.global_position.x = x + 22.0
+		return
+	if mode == "ore":   # a pit whose walls show every ore tile, one cracked
+		var mo: Node2D = ex.mining
+		var oc := 0
+		for col in range(ex.HATCH_COL + 40, ex.COLS - 10):
+			if not mo.protected_cols.has(col) and not mo.protected_cols.has(col + 1) and not mo.protected_cols.has(col + 2) and ex.surface_rows[col] == ex.BASE_ROW and ex.surface_rows[col + 2] == ex.BASE_ROW:
+				oc = col
+				break
+		for d in 2: mo.hit(Vector2i(oc, ex.BASE_ROW + d), 99.0)
+		for d in 3: mo.hit(Vector2i(oc + 1, ex.BASE_ROW + d), 99.0)
+		var kinds := ["scrap_ore", "concrete", "circuits", "bedrock", "planks", "pipe", "bones", "toxic"]
+		var cells := [Vector2i(oc - 1, ex.BASE_ROW + 1), Vector2i(oc - 1, ex.BASE_ROW + 2), Vector2i(oc, ex.BASE_ROW + 2),
+			Vector2i(oc + 1, ex.BASE_ROW + 3), Vector2i(oc + 2, ex.BASE_ROW + 1), Vector2i(oc + 2, ex.BASE_ROW + 2),
+			Vector2i(oc + 3, ex.BASE_ROW + 1), Vector2i(oc + 2, ex.BASE_ROW + 3)]
+		for i in kinds.size():
+			mo.place(cells[i], kinds[i], Vector2i.ZERO)
+		mo.damage[Vector2i(oc + 2, ex.BASE_ROW)] = 2.0
+		mo.damage[Vector2i(oc + 3, ex.BASE_ROW)] = 4.0
+		mo.queue_redraw()
+		p.global_position = Vector2((oc + 1) * 16 + 8, (ex.BASE_ROW + 3) * 16 - 1)
+		p.face(-1.0)
+		ex.camera.zoom = Vector2(2, 2)
+		await _frames(10)
+		ex.inventory.select(1)
+		ex.swing.aim_override = p.global_position + Vector2(-20, 0)
+		ex.swing.use("pickaxe")
+		return
 	if mode == "tree":
 		var t: Node2D = get_tree().get_nodes_in_group("trees").filter(func(n: Node) -> bool: return n.size == "large")[0]
 		p.global_position = Vector2(t.position.x - 14, ex.floor_y(t.position.x - 14) - 1)

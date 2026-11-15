@@ -135,3 +135,24 @@ The expedition loads it with `load()` in `_setup_lighting()`, so the game still 
   lights + headlamp + cone in full, 3 + 2 in simple. Not measured on a real GPU or in a browser yet: if the web
   build is slow, "simple" drops the shadows, "off" drops everything.
 - Screenshots: `tools/shots/shot_light_{hatch,depot,hole}.json` with `SHOT_QUALITY=full|simple|off` (see COMMANDS).
+
+## Art V2 batch (new artist PNGs)
+Cleaned by `art_tools/clean_art.py` from `../art_raw_v2/{chars,world}` (raws untracked); list in `art/ART_INDEX.md`.
+- **Zombie**: `zombie_walk_0..3` (17x32), `zombie_attack_0..2` (29x30), `zombie_hurt_0..1` (24x32), all facing right,
+  flipped by `facing`. No death frames: `_die()` holds the last hurt frame, tints it `DEATH_TINT`, sinks 3 px and fades
+  (same 0.8 s). Glowing eyes: an `Eyes` AnimatedSprite2D child (group `light_glow`) made once from the bright
+  yellow-green pixels of every frame (needs a texture readback; skipped where it fails).
+- **Player**: `survivor_chop` (axe swing), `survivor_mine` (pickaxe), `survivor_flashlight_idle` when standing with the
+  flashlight selected (`player.held_tool`, set by the expedition from `Inventory.selection_changed`), `survivor_climb`
+  loaded as anim `climb` (not played yet: for the walkable bunker).
+- **Trees** (`actors/tree.gd`): small = `obj_tree_dead` (50x80), medium = `obj_tree_oak` or `obj_tree_oak_orange`
+  (orange on every third column), large = `obj_tree_pine` (82x128); `obj_stump` after falling; wood pickups from trees
+  are drawn with `obj_logs`. Hp/logs/hit boxes unchanged. `obj_tree_sapling`, `obj_bush`, `obj_branch` unused so far.
+  The old `obj_trees.png` sheet is no longer used.
+- **Ore atlas** `tiles_ore.png` (64x32, mining.gd order): scrap ore = silver ore (tiles_ore3), concrete = grey stone
+  chunks (tiles_ore2), circuits = gold ore (tiles_ore3), bedrock = plain stone (tiles_ore3) darkened blue-grey,
+  planks / pipe / bones = dirt-with-rocks / dirt-with-pebbles (tiles_ore) with the stones recoloured wood / rust / bone
+  and the dirt darkened toward `tiles_outside_dirt`, toxic = toxic green veins (tiles_ore2). Mapping: `ORE_ATLAS` in
+  clean_art.py. `tiles_crack.png` 64x16 (4 stages). Surface and dirt still come from `tiles_outside.png`.
+- Screenshots: `tools/shots/shot_zombie.json` (flashlight idle, a zombie attacking, one walking), `shot_ore.json`
+  (every ore tile in a pit wall + cracks), `shot_chop.json` (mid axe swing on a pine), plus the old ones.

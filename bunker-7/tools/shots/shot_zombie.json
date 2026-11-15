@@ -1,0 +1,21 @@
+{
+  "scene_path": "res://tools/shots/shot_zombie.tscn",
+  "viewport_size": [
+    480,
+    270
+  ],
+  "settle_frames": 10,
+  "steps": [
+    {
+      "type": "wait_seconds",
+      "seconds": 1.4
+    },
+    {
+      "type": "screenshot",
+      "path": "user://shot_zombie.png",
+      "expect": {
+        "not_blank": true
+      }
+    }
+  ]
+}

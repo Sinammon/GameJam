@@ -17,7 +17,7 @@
 6. Lighting screenshots: `SHOT_QUALITY=full python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_light_hole.json --godot-bin "$GODOT"`
    (also `shot_light_hatch.json`, `shot_light_depot.json`; quality full/simple/off).
 7. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
-   (also `shot_tree_fall.json`, `shot_hole.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
+   (also `shot_tree_fall.json`, `shot_hole.json`, `shot_chop.json`, `shot_zombie.json`, `shot_ore.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
 
 ## Controls
 - Move: A/D or Left/Right. Jump: W, Up or Space. Interact: E.
