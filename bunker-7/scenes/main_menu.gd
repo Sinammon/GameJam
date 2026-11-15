@@ -23,7 +23,7 @@ func _ready() -> void:
 
 func _add_difficulty(box: VBoxContainer, d: int, note: String) -> void:
 	var s: Dictionary = GameState.SETTINGS[d]
-	var b := UIKit.button("%s  -  %s" % [s.name, note], Vector2(190, 24))
+	var b := UIKit.set_click_sfx(UIKit.button("%s  -  %s" % [s.name, note], Vector2(190, 24)), "ui_confirm")
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(GameState.start_game.bind(d))
 	box.add_child(b)

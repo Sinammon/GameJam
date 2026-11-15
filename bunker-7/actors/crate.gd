@@ -92,6 +92,7 @@ func interact(player: Node) -> void:
 		player.say("Backpack full!")
 		return
 	var got := take_into(contents, player)
+	Sfx.play("pickup")
 	if is_empty():
 		show_open()
 		player.say(", ".join(got))

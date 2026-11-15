@@ -35,6 +35,7 @@ func _ready() -> void:
 	box = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3)
 	_panel.add_child(box)
+	Sfx.play("popup_open")
 
 # Removes all rows (the bunker refills the popup after a change).
 func clear() -> void:
@@ -97,7 +98,7 @@ func add_node(n: Control) -> void:
 
 # Close button at the bottom + focus on the first enabled button.
 func finish() -> void:
-	var close_b := UIKit.button("Close (Esc)", Vector2(90, 16), 8)
+	var close_b := UIKit.set_click_sfx(UIKit.button("Close (Esc)", Vector2(90, 16), 8), "")   # close() plays popup_close
 	close_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_b.focus_mode = Control.FOCUS_ALL
 	close_b.pressed.connect(close)
@@ -115,6 +116,7 @@ func close() -> void:
 	if not is_open:
 		return
 	is_open = false
+	Sfx.play("popup_close")
 	closed.emit()
 	queue_free()
 

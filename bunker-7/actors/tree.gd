@@ -93,6 +93,7 @@ func hit(damage: float, from_x: float) -> void:
 	if fallen:
 		return
 	hp -= damage
+	Sfx.play("axe_chop", 0.0, 0.08)
 	Chips.burst(get_parent(), global_position + Vector2(0, -14), "wood", 5)
 	if hp <= 0.0:
 		fall(signf(global_position.x - from_x))
@@ -108,6 +109,7 @@ func fall(dir: float) -> void:
 	if fallen:
 		return
 	fallen = true
+	Sfx.play("tree_fall")
 	if dir == 0.0:
 		dir = 1.0
 	_stump.visible = true

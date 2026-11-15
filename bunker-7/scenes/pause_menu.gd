@@ -118,6 +118,9 @@ func _build() -> void:
 	lq_row.add_child(lights_option)
 
 	back_button = _button(settings_page, "Back", close_settings)
+	UIKit.set_click_sfx(resume_button, "")   # close() plays popup_close
+	UIKit.set_click_sfx(back_button, "ui_back")
+	UIKit.set_click_sfx(menu_button, "ui_back")
 
 func _button(parent: Control, text: String, handler: Callable) -> Button:
 	var b := UIKit.button(text, Vector2(150, 22), 10)
@@ -184,6 +187,7 @@ func open() -> void:
 	is_open = true
 	_was_paused = get_tree().paused
 	get_tree().paused = true
+	Sfx.play("popup_open")
 	main_page.visible = true
 	settings_page.visible = false
 	_root.visible = true
@@ -197,6 +201,7 @@ func close() -> void:
 	is_open = false
 	_root.visible = false
 	get_tree().paused = _was_paused
+	Sfx.play("popup_close")
 	resumed.emit()
 
 func toggle() -> void:

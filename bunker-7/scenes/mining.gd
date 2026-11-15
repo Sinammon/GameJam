@@ -373,6 +373,7 @@ func hit(cell: Vector2i, amount := -1.0) -> bool:
 	var at := Vector2(cell) * TILE + Vector2(8, 4)
 	Chips.burst(get_parent(), at, CHIP_KIND.get(kind, "dirt"), 4)
 	if damage[cell] + 0.001 < HP.get(kind, 3.0):
+		Sfx.play("pickaxe_hit", 0.0, 0.1)
 		queue_redraw()
 		return false
 	_break(cell, kind)
@@ -381,6 +382,7 @@ func hit(cell: Vector2i, amount := -1.0) -> bool:
 func _break(cell: Vector2i, kind: String) -> void:
 	damage.erase(cell)
 	kinds.erase(cell)
+	Sfx.play("rock_break", 0.0, 0.1)
 	ground.erase_cell(cell)
 	floor_rows[cell.x] = cell.y + 1
 	dug[cell] = true

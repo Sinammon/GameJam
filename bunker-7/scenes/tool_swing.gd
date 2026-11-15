@@ -58,6 +58,7 @@ func use(tool_id: String) -> String:
 	if _cooldown > 0.0:
 		return ""
 	_cooldown = COOLDOWN
+	Sfx.play("swing", 0.0, 0.1)
 	var aim: Variant = null
 	if mouse_aim:
 		aim = get_global_mouse_position()

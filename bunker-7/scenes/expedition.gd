@@ -88,7 +88,7 @@ var radiation: float:        # percent; a property so tests and the debug key ca
 var ended := false           # true once banking or dying has started (only one may ever run)
 var rad_mult := 1.0
 var inventory: Node = null
-var warning_sound: AudioStreamPlayer = null   # optional: audio/sfx_rad_warning.* if present
+var _audio_time := 0.0        # seconds on this expedition (crater danger music at the start)
 var pause_menu: Node = null  # scenes/pause_menu.tscn (Esc), if present
 var surface_rows: Array[int] = []   # natural surface; mining.floor_rows is the current one
 var use_art_tiles := false   # false = drawn placeholder tiles (tiles_outside.png missing)
@@ -179,7 +179,6 @@ func _ready() -> void:
 	player.out_of_health.connect(_die)
 	rad.warning.connect(_on_rad_warning)
 	rad.drain_tick.connect(_on_rad_drain)
-	_setup_warning_sound()
 	if ResourceLoader.exists(PAUSE_MENU):
 		pause_menu = load(PAUSE_MENU).instantiate()
 		add_child(pause_menu)
@@ -325,6 +324,7 @@ func use_item(kind: String) -> String:
 		show_message("You are not hurt.")
 		return ""
 	player.use_item(kind)
+	Sfx.play("drop" if c.has("heal") else ("drink" if c.meter == "water" else "eat"), 0.0, 0.05)
 	var line := "%s: " % kind.replace("_", " ").capitalize()
 	if c.has("heal"):
 		player.health.heal(int(c.heal))
@@ -617,6 +617,7 @@ func _process(delta: float) -> void:
 	if ended:
 		return   # no radiation during the death fade or after banking
 	rad.tick(delta, distance_frac(player.position.x), rad_mult, hatch.player_inside)
+	_audio_tick(delta)
 	if survival:
 		survival.tick(delta, GSBridge.meter_drain())
 	hud.set_hint(EXIT_HINT.get(str(loc.get("exit", "hatch")), EXIT_HINT.hatch) if hatch.player_inside else "")
@@ -704,18 +705,26 @@ func _on_rad_drain() -> void:
 
 func _on_rad_warning(level: int) -> void:
 	show_message(RAD_LINES[level])
-	if warning_sound:
-		warning_sound.pitch_scale = 1.0 + 0.25 * level
-		warning_sound.play()
+	var p: AudioStreamPlayer = Sfx.play("rad_warning", 2.0 * level)
+	if p:
+		p.pitch_scale = 1.0 + 0.12 * level
 
-func _setup_warning_sound() -> void:
-	for ext in ["wav", "ogg", "mp3"]:
-		var path := "res://audio/sfx_rad_warning.%s" % ext
-		if ResourceLoader.exists(path):
-			warning_sound = AudioStreamPlayer.new()
-			warning_sound.stream = load(path)
-			add_child(warning_sound)
-			return
+# Geiger clicks by radiation, heartbeat at low health, danger music when radiation is high,
+# a zombie is close, or the first seconds in the crater.
+func _audio_tick(delta: float) -> void:
+	_audio_time += delta
+	var frac: float = rad.value / 100.0
+	Sfx.geiger(0.0 if hatch.player_inside else frac)
+	var hp: int = player.health.hp if player.health else 99
+	var max_hp: int = player.health.max_hp if player.health else 99
+	Sfx.heartbeat(not player.dead and hp <= maxi(2, int(max_hp * 0.3)))
+	var danger: bool = frac >= 0.85 or (location == "crater" and (frac >= 0.6 or _audio_time < 8.0))
+	if not danger:
+		for z in get_tree().get_nodes_in_group("zombies"):
+			if not z.is_dead() and absf(z.global_position.x - player.global_position.x) < 140.0:
+				danger = true
+				break
+	Sfx.danger(danger)
 
 # reason: "radiation", "zombie", ... shown on the HUD during the fade.
 func _die(reason := "") -> void:

@@ -52,6 +52,8 @@ func _player_in_reach() -> bool:
 	return area is Area2D and (area as Area2D).overlaps_area(self)
 
 func _set_open(open: bool) -> void:
+	if open != is_open and exit_style == "hatch":
+		Sfx.play("hatch_open" if open else "hatch_close", -3.0)
 	is_open = open
 	if _open == null or exit_style != "hatch":
 		return

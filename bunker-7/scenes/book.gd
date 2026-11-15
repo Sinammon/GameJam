@@ -58,7 +58,7 @@ func _ready() -> void:
 	list.add_theme_constant_override("separation", 4)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
-	back_button = UIKit.button("Back (Esc)", Vector2(90, 16), 8)
+	back_button = UIKit.set_click_sfx(UIKit.button("Back (Esc)", Vector2(90, 16), 8), "ui_back")
 	back_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back_button.focus_mode = Control.FOCUS_ALL
 	back_button.pressed.connect(close)

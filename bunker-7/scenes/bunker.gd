@@ -575,6 +575,7 @@ func _arrive() -> void:
 		walker.can_walk = false
 		_fade.color.a = 1.0
 		create_tween().tween_property(_fade, "color:a", 0.0, FADE_TIME)
+		Sfx.play("hatch_close", -3.0)
 		walker.climb_to(Vector2(shaft_x(), FLOOR_Y))
 		await walker.climb_finished
 		busy = false
@@ -590,6 +591,7 @@ func _arrive() -> void:
 		camera.position = Vector2(walker.position.x, VIEW.y / 2.0)
 		camera.reset_smoothing()
 		walker.wake_up()
+		Sfx.play("day_start")
 		busy = false
 		_fade.color.a = 1.0
 		create_tween().tween_property(_fade, "color:a", 0.0, FADE_TIME)
@@ -686,6 +688,7 @@ func sleep_now() -> void:
 		return
 	_slept = true
 	busy = true
+	Sfx.play("sleep")
 	walker.can_walk = false
 	close_popup()
 	if pause_menu:
@@ -936,12 +939,28 @@ func _do(what: String, id: String) -> void:
 		"unlock":
 			ok = GameState.unlock_room(id)
 			if ok:
+				Sfx.play("door_open")
 				banner("The %s is open." % GameState.ROOMS[id].name)
 				close_popup()
 				return
+	_do_sound(what, id, ok)
 	if ok and GameState.goal_done and not goal_before:
 		banner(GameState.goal_message, 6.0)
 	_fill_popup()
+
+func _do_sound(what: String, id: String, ok: bool) -> void:
+	if not ok:
+		Sfx.play("build_fail")
+		return
+	match what:
+		"consume":
+			Sfx.play("drink" if id in ["water", "dirty_water"] else ("drop" if id == "bandage" else "eat"))
+		"pack":
+			Sfx.play("pickup")
+		"filter":
+			Sfx.play("drink", -3.0)
+		_:
+			Sfx.play("build_ok")
 
 func close_popup() -> void:
 	if popup != null and is_instance_valid(popup):

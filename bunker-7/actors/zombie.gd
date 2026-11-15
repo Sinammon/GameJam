@@ -229,6 +229,7 @@ func _idle(delta: float) -> void:
 	velocity.x = _wander_dir * WANDER_SPEED * speed_mult
 	if _sees_player():
 		state = State.CHASE
+		Sfx.random(["zombie_growl_1", "zombie_growl_2"], 0.0, 0.12)
 
 func _chase() -> void:
 	if not _player_ok():
@@ -244,6 +245,8 @@ func _chase() -> void:
 		if _cooldown <= 0.0:
 			state = State.ATTACK
 			_timer = WINDUP
+			if randf() < 0.5:
+				Sfx.random(["zombie_growl_1", "zombie_growl_2"], -3.0, 0.15)
 			_play("attack")
 		return
 	velocity.x = facing * CHASE_SPEED * speed_mult
@@ -273,6 +276,7 @@ func take_hit(amount: float, from_x: float) -> bool:
 	if state == State.DEAD:
 		return false
 	hp -= amount
+	Sfx.play("zombie_hit", 0.0, 0.1)
 	Chips.burst(get_parent(), global_position + Vector2(0, -14), "toxic", 5)
 	_flash()
 	var dir := signf(global_position.x - from_x)
@@ -296,6 +300,7 @@ func _flash() -> void:
 func _die() -> void:
 	state = State.DEAD
 	collision_layer = 0
+	Sfx.play("zombie_death", 0.0, 0.08)
 	_play("death")
 	if randf() < DROP_CHANCE:
 		var p: Node2D = PickupScript.new()

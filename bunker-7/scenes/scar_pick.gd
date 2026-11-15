@@ -26,7 +26,7 @@ func _ready() -> void:
 		return
 	for id in choices:
 		var s: Dictionary = GameState.SCARS[id]
-		var card := UIKit.button("%s\n%s" % [s.name, s.desc], Vector2(130, 76), 9)
+		var card := UIKit.set_click_sfx(UIKit.button("%s\n%s" % [s.name, s.desc], Vector2(130, 76), 9), "ui_confirm")
 		card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var icon := UIKit.tex("world_clean/" + str(SCAR_ICONS.get(id, "")))
 		if icon != null:

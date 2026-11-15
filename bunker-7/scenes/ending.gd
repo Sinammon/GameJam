@@ -20,7 +20,7 @@ func _ready() -> void:
 		box.add_child(_wrapped("No beacon, no convoy. You're alive. Alone.", 10))
 	box.add_child(UIKit.outlined("Days survived: %d     Bounces used: %d of %d" % [GameState.MAX_DAY, GameState.bounces_used(), int(GameState.settings.bounces)], 9, UIKit.DIM))
 	box.add_child(_wrapped("Scars: " + GameState.scar_names_text(), 9))
-	var b := UIKit.button("Main Menu", Vector2(140, 24))
+	var b := UIKit.set_click_sfx(UIKit.button("Main Menu", Vector2(140, 24)), "ui_back")
 	b.pressed.connect(GameState.go_to.bind("res://scenes/main_menu.tscn"))
 	if has_art:   # bottom-right corner, off the characters
 		b.position = Vector2(480 - 150, 270 - 32)

@@ -33,7 +33,7 @@ func _ready() -> void:
 	_note.custom_minimum_size = Vector2(300, 0)
 	_box.add_child(_note)
 
-	_go = UIKit.button("Go Outside", Vector2(160, 28), 12)
+	_go = UIKit.set_click_sfx(UIKit.button("Go Outside", Vector2(160, 28), 12), "ui_confirm")
 	_go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_go.pressed.connect(_go_outside)
 	_box.add_child(_go)

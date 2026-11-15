@@ -11,7 +11,7 @@ func _ready() -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size = Vector2(340, 0)
 		box.add_child(l)
-	var go := UIKit.button("Continue", Vector2(140, 24))
+	var go := UIKit.set_click_sfx(UIKit.button("Continue", Vector2(140, 24)), "ui_confirm")
 	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	go.pressed.connect(GameState.start_day)
 	box.add_child(go)

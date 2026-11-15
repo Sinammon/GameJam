@@ -93,6 +93,7 @@ func interact(player: Node) -> void:
 		player.say("Backpack full!")
 		return
 	uses -= 1
+	Sfx.play("pickup")
 	player.say("+%d %s%s" % [got, item.replace("_", " "), "" if uses > 0 else " (used up)"])
 	if uses <= 0 and _art:
 		_art.modulate = Color(0.5, 0.5, 0.5, 0.6)

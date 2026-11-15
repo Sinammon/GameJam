@@ -65,6 +65,7 @@ func take_hit(_amount: float, _from_x: float) -> bool:
 	if dead:
 		return false
 	dead = true
+	Sfx.play("zombie_hit", -4.0, 0.1)
 	remove_from_group("critters")
 	for i in meat:
 		var p: Node2D = PickupScript.new()

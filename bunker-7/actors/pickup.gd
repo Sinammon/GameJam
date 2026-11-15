@@ -54,6 +54,7 @@ func _physics_process(delta: float) -> void:
 			position.x = move_toward(position.x, player.global_position.x, MAGNET_SPEED * delta)
 		return
 	if player.add_item(kind, 1) == 1:
+		Sfx.play("pickup", 0.0, 0.08)
 		player.say("+1 %s" % kind.replace("_", " "))
 		queue_free()
 	elif _msg_left <= 0.0:
@@ -66,6 +67,8 @@ func _fall(delta: float) -> void:
 	if floor_at.is_valid():
 		ground = floor_at.call(position.x)
 	if position.y >= ground and vel.y >= 0.0:
+		if not grounded and vel.y > 60.0:
+			Sfx.play("drop", -2.0, 0.12)
 		position.y = ground
 		vel = Vector2.ZERO
 		grounded = true
