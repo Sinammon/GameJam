@@ -13,7 +13,8 @@ Needs: python3 + Pillow + numpy  (pip3 install --user pillow numpy)
 Usage (from the bunker-7 folder):
   python3 art_tools/clean_art.py --chars <folder with character PNGs> --world <folder with world PNGs>
   python3 art_tools/clean_art.py ... --only BedRoom.png     # one file
-  The folders may hold just some of the raws (e.g. the V2 batch in ../art_raw_v2/{chars,world}):
+  The folders may hold just some of the raws (e.g. the V2 batch in ../art_raw_v2/{chars,world},
+  or the V3 batch: --chars ../art_raw_v3 --world ../art_raw_v3, both tables share one folder):
   ART_INDEX.md keeps the rows of files not processed in this run.
 Outputs: art/characters_clean/, art/world_clean/ and art/ART_INDEX.md (originals never modified).
 tiles_ore.png is built from the three ore sheets together (tiles_ore/2/3.png, see ORE_ATLAS).
@@ -78,6 +79,10 @@ CHARS = {
     "survivor_chop.png":     dict(kind="sheet", out="survivor_chop", n=4, anim=True, h=SURV_H["chop"]),
     "survivor_climb.png":    dict(kind="sheet", out="survivor_climb", n=4, anim=True, h=SURV_H["climb"]),
     "survivor_flash.png":    dict(kind="sheet", out="survivor_flashlight_idle", n=4, anim=True, h=SURV_H["flash"]),
+    # V3 batch: zombie_walk.png above is now the grey-skinned crisp walk (same rule, 32 px).
+    # Death: stagger, buckle, fall back, lying flat. Same px scale as the walk (its tallest frame
+    # is 516 raw px = 32), so the lying frame comes out long; shared canvas, bottom baseline.
+    "zombie_death.png":      dict(kind="sheet", out="zombie_death", n=4, anim=True, scale=ZOMBIE_H["walk"] / 516.0),
 }
 ROOM = (234, 78)     # one bunker room cell in the bunker screen
 BG = (810, 270)      # parallax layers: 270 px tall like the viewport
@@ -133,6 +138,27 @@ WORLD = {
                             names=["stone_chunks", "copper", "gold", "crystal_blue", "toxic", "crystal_purple"]),
     "tiles_ore3.png":  dict(kind="ore_tiles", set="c", n=6,
                             names=["stone", "copper", "silver", "crystal_blue", "gold", "toxic_slime"]),
+    # V3 batch.
+    # Geiger counter, 5 radiation states (green .. red with sparks): one scale for all (the red
+    # one with its sparks is the tallest = 24 px), each in a 24x24 cell, bottom-left aligned so
+    # the bodies line up; ui_geiger.png = the 5 cells side by side (120x24), as the HUD expects.
+    "ui_gieger.png":   dict(kind="sheet", out="ui_geiger", n=5, anim=True, h=24, cell=(24, 24),
+                            align="left", strip="ui_geiger"),
+    # 5 tools 16x16 (the crowbar/pipe one is "pipe"), 4 backpack tiers 24x24 (each fitted).
+    "icon_tools.png":  dict(kind="sheet", n=9, boxes=[(16, 16)] * 5 + [(24, 24)] * 4,
+                            names=["icon_tool_axe", "icon_tool_pickaxe", "icon_tool_flashlight", "icon_tool_canteen",
+                                   "icon_tool_pipe", "icon_backpack_1", "icon_backpack_2", "icon_backpack_3",
+                                   "icon_backpack_4"]),
+    # Bunker stations at 16 px tile scale (each fitted into its box; both doors 44 px tall).
+    "bunker_stations.png": dict(kind="sheet", n=6, boxes=[(48, 32), (48, 32), (16, 32), (32, 44), (32, 44), (16, 32)],
+                                names=["obj_workbench", "obj_upgrade_bench", "obj_locker", "obj_door_locked",
+                                       "obj_door_open", "obj_lamp_ceiling"]),
+    # Open surface hatch (32 px wide, lid raised), ladder segment, ladder top in its opening,
+    # riveted concrete shaft wall tile.
+    "obj_hatchladder.png": dict(kind="sheet", n=4, boxes=[(32, 64), (16, 16), (16, 16), (16, 16)],
+                                names=["obj_hatch_open", "obj_ladder", "obj_ladder_top", "tile_shaft_wall"]),
+    # Tutorial slide 3: a filled 16:9 picture (no magenta), cropped to exact 16:9 then 480x270.
+    "tut3_rad.png":    dict(kind="full", out="tut_3_radiation", size=(480, 270), crop=True),
 }
 # tiles_ore.png = 4x2 cells of 16 px in the order scenes/mining.gd ORE_ATLAS expects:
 #   scrap_ore, concrete, circuits, bedrock / planks, pipe, bones, toxic
@@ -474,7 +500,13 @@ def process(path, cfg, folder, index):
     print("%-26s %-6s bg=%s" % (os.path.basename(path), kind, bg))
 
     if kind == "full":
-        mask = alpha_mask(rgb, bg) if cfg.get("key") and bg == "magenta" else np.ones(rgb.shape[:2], bool)
+        if cfg.get("crop"):   # centre-crop to the exact aspect of `size` first
+            H, W = rgb.shape[:2]
+            tw, th = cfg["size"]
+            cw, ch = min(W, round(H * tw / th)), min(H, round(W * th / tw))
+            x0, y0 = (W - cw) // 2, (H - ch) // 2
+            rgb = rgb[y0:y0 + ch, x0:x0 + cw]
+        mask =alpha_mask(rgb, bg) if cfg.get("key") and bg == "magenta" else np.ones(rgb.shape[:2], bool)
         if cfg.get("key") and bg != "magenta":   # e.g. magenta sky only at the top
             mask = ~is_magenta_bg(rgb)
         c, a = resample(rgb, mask, *cfg["size"])
@@ -572,22 +604,28 @@ def process(path, cfg, folder, index):
         boxes = order_ui_parts(rgb, boxes)
     names = cfg.get("names") or ["%s_%d" % (cfg["out"], i) for i in range(len(boxes))]
     if cfg.get("anim"):
-        tallest = max(b[3] - b[1] for b in boxes)
-        scale = cfg["h"] / tallest
+        if "scale" in cfg:   # fixed px scale (e.g. to match another sheet)
+            scale = cfg["scale"]
+        else:
+            tallest = max(b[3] - b[1] for b in boxes)
+            scale = cfg["h"] / tallest
         pieces = [trim(*scaled_piece(rgb, mask, b, scale)) for b in boxes]
         W = max(p[0].shape[1] for p in pieces)
         H = max(p[0].shape[0] for p in pieces)
+        if "cell" in cfg:   # fixed canvas size (at least as big as the frames)
+            W, H = max(W, cfg["cell"][0]), max(H, cfg["cell"][1])
+        left = cfg.get("align") == "left"
         for name, (c, a) in zip(names, pieces):
             canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
             img = to_image(c, a)
-            canvas.paste(img, ((W - img.width) // 2, H - img.height))   # bottom baseline, centred
+            canvas.paste(img, (0 if left else (W - img.width) // 2, H - img.height))   # bottom baseline, centred
             save(canvas, folder, name, index)
         strip = Image.new("RGBA", (W * len(pieces), H), (0, 0, 0, 0))
         for i, (c, a) in enumerate(pieces):
             img = to_image(c, a)
-            strip.paste(img, (i * W + (W - img.width) // 2, H - img.height))
+            strip.paste(img, (i * W + (0 if left else (W - img.width) // 2), H - img.height))
         if "out" in cfg:
-            save(strip, folder, cfg["out"] + "_strip", index)
+            save(strip, folder, cfg.get("strip", cfg["out"] + "_strip"), index)
         return
     for i, (name, b) in enumerate(zip(names, boxes)):
         if "factor" in cfg:
