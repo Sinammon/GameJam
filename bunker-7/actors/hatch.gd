@@ -17,6 +17,16 @@ var _closed: Sprite2D = null
 var _open: Sprite2D = null
 var _held := false
 var _player: Node = null
+var exit_style := "hatch"      # V3: "rope" (Old Mine) / "ladder" (Bomb Crater) hide the hatch art
+
+# The way home in another location: hide the hatch pictures (the expedition adds the rope/ladder).
+func set_exit_style(style: String) -> void:
+	exit_style = style
+	if style == "hatch":
+		return
+	for n in [$Sprite, $Frame, _closed, _open]:
+		if n:
+			n.visible = false
 
 func _ready() -> void:
 	_closed = Art.sprite(self, "res://art/world_clean/obj_hatch.png", CLOSED_LIFT)
@@ -42,8 +52,10 @@ func _player_in_reach() -> bool:
 	return area is Area2D and (area as Area2D).overlaps_area(self)
 
 func _set_open(open: bool) -> void:
+	if open != is_open and exit_style == "hatch":
+		Sfx.play("hatch_open" if open else "hatch_close", -3.0)
 	is_open = open
-	if _open == null:
+	if _open == null or exit_style != "hatch":
 		return
 	_open.visible = open
 	if _closed:
@@ -55,6 +67,8 @@ func _set_open(open: bool) -> void:
 # Climbing down: stays open and is drawn over the survivor so they sink into the shaft.
 func hold_open() -> void:
 	_held = true
+	if exit_style != "hatch":
+		return
 	_set_open(true)
 	if _open:
 		_open.z_index = 1

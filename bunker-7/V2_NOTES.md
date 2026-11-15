@@ -231,3 +231,12 @@ tier 4 or when short), `backpack_upgrade_cost(tier) -> Dictionary` ({} for tier 
 `can_upgrade_backpack()`, `max_health()` (10), `get_day()`, `go_outside()`, `go_outside_block()`, `start_day()`,
 `last_banked`. `bank_loot` takes all six LOOT_KINDS (water and food too).
 - Test: `tools/test_bunker.gd` (real GameState, own settings file). Screenshots: `tools/shots/shot_bunker_*.json`.
+
+## V3 (survival, locations, days, book): see V3_TODO.md
+- Expedition is one scene for every place: `scenes/locations.gd` fills the layout variables (`COLS`, `HATCH_X`,
+  `CRATE_XS`... still read as `ex.HATCH_X` by other scripts) in `_configure()`; set `ex.location` before adding
+  the scene to force one (tests, `tools/shots/shot_v3.gd`). Placeholders: `scenes/location_dressing.gd`.
+- Survival: `scenes/survival.gd` (meters, consumables), GSBridge optional reads `meters / meter_drain /
+  trip_supplies / location / zombie_multiplier / goal_text` and `set_meters` (called right before
+  bank_loot / player_died; the trip still ends only through those two).
+- Screenshots: `SHOT_MODE=<morning|bunker|stations|utility|hud|mine|crater|book>` + `tools/shots/shot_v3.json`.

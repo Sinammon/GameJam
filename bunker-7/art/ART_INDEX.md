@@ -7,6 +7,11 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 
 | file | size (px) | from raw file |
 |---|---|---|
+| characters_clean/bat_fly_0.png | 22x14 | Bats.png |
+| characters_clean/bat_fly_1.png | 22x14 | Bats.png |
+| characters_clean/bat_fly_2.png | 22x14 | Bats.png |
+| characters_clean/bat_fly_3.png | 22x14 | Bats.png |
+| characters_clean/bat_fly_strip.png | 88x14 | Bats.png |
 | characters_clean/dog_concept.png | 61x48 | dog_concept.png |
 | characters_clean/dog_run_0.png | 22x18 | dog_run.png |
 | characters_clean/dog_run_1.png | 22x18 | dog_run.png |
@@ -36,11 +41,11 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | characters_clean/raider_walk_3.png | 20x33 | raider_walk.png |
 | characters_clean/raider_walk_strip.png | 80x33 | raider_walk.png |
 | characters_clean/rat_concept.png | 80x40 | rat_concept.png |
-| characters_clean/rat_run_0.png | 27x13 | rat_run.png |
-| characters_clean/rat_run_1.png | 27x13 | rat_run.png |
-| characters_clean/rat_run_2.png | 27x13 | rat_run.png |
-| characters_clean/rat_run_3.png | 27x13 | rat_run.png |
-| characters_clean/rat_run_strip.png | 108x13 | rat_run.png |
+| characters_clean/rat_run_0.png | 33x13 | Rats.png |
+| characters_clean/rat_run_1.png | 33x13 | Rats.png |
+| characters_clean/rat_run_2.png | 33x13 | Rats.png |
+| characters_clean/rat_run_3.png | 33x13 | Rats.png |
+| characters_clean/rat_run_strip.png | 132x13 | Rats.png |
 | characters_clean/survivor_chop_0.png | 32x33 | survivor_chop.png |
 | characters_clean/survivor_chop_1.png | 32x33 | survivor_chop.png |
 | characters_clean/survivor_chop_2.png | 32x33 | survivor_chop.png |
@@ -109,7 +114,9 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | characters_clean/zombie_walk_2.png | 22x32 | zombie_walk.png |
 | characters_clean/zombie_walk_3.png | 22x32 | zombie_walk.png |
 | characters_clean/zombie_walk_strip.png | 88x32 | zombie_walk.png |
+| world_clean/bg_crater.png | 480x270 | BombCraterBackDrop.png |
 | world_clean/bg_far.png | 810x270 | FarCityLine.png |
+| world_clean/bg_mine.png | 480x270 | Mine.png |
 | world_clean/bg_near_depot.png | 810x270 | MilitaryBase.png |
 | world_clean/bg_near_market.png | 810x270 | GasStation.png |
 | world_clean/bg_near_suburb.png | 810x270 | Ruins.png |
@@ -131,16 +138,25 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/icon_backpack_2.png | 24x22 | icon_tools.png |
 | world_clean/icon_backpack_3.png | 23x24 | icon_tools.png |
 | world_clean/icon_backpack_4.png | 22x24 | icon_tools.png |
+| world_clean/icon_bandage.png | 16x15 | SurivialItems.png |
 | world_clean/icon_bounce.png | 16x16 | IconStatus.png |
+| world_clean/icon_bucket.png | 10x16 | SurivialItems.png |
+| world_clean/icon_canned_food.png | 14x16 | SurivialItems.png |
 | world_clean/icon_circuits.png | 16x16 | Resources.png |
+| world_clean/icon_clean_water.png | 10x16 | SurivialItems.png |
 | world_clean/icon_concrete.png | 16x15 | Resources.png |
+| world_clean/icon_cooked_meat.png | 13x15 | SurivialItems.png |
 | world_clean/icon_day.png | 15x16 | IconStatus.png |
+| world_clean/icon_dirty_water.png | 10x16 | SurivialItems.png |
 | world_clean/icon_food.png | 13x16 | Resources.png |
 | world_clean/icon_health.png | 16x14 | IconStatus.png |
 | world_clean/icon_locked.png | 14x16 | IconStatus.png |
 | world_clean/icon_medkit.png | 16x15 | IconStatus.png |
+| world_clean/icon_mushroom.png | 15x16 | SurivialItems.png |
 | world_clean/icon_radiation.png | 16x15 | IconStatus.png |
+| world_clean/icon_raw_meat.png | 16x12 | SurivialItems.png |
 | world_clean/icon_scrap.png | 16x15 | Resources.png |
+| world_clean/icon_tin_can.png | 11x16 | SurivialItems.png |
 | world_clean/icon_tool_axe.png | 16x16 | icon_tools.png |
 | world_clean/icon_tool_canteen.png | 13x16 | icon_tools.png |
 | world_clean/icon_tool_flashlight.png | 16x15 | icon_tools.png |
@@ -148,12 +164,18 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/icon_tool_pipe.png | 16x16 | icon_tools.png |
 | world_clean/icon_water.png | 9x16 | Resources.png |
 | world_clean/icon_wood.png | 16x13 | Resources.png |
+| world_clean/obj_ash_pile.png | 28x12 | BombCrateItems.png |
+| world_clean/obj_bomb_shell.png | 72x30 | BombCrateItems.png |
 | world_clean/obj_branch.png | 9x8 | obj_trees.png |
 | world_clean/obj_bush.png | 30x20 | obj_trees.png |
+| world_clean/obj_car_wreck.png | 60x20 | BombCrateItems.png |
 | world_clean/obj_crate_closed.png | 16x12 | WorldResources.png |
 | world_clean/obj_crate_open.png | 16x16 | WorldResources.png |
+| world_clean/obj_crater_crystal.png | 24x18 | BombCrateItems.png |
+| world_clean/obj_crater_exit.png | 30x35 | BombCrateItems.png |
 | world_clean/obj_door_locked.png | 32x44 | bunker_stations.png |
 | world_clean/obj_door_open.png | 30x44 | bunker_stations.png |
+| world_clean/obj_girder.png | 26x34 | BombCrateItems.png |
 | world_clean/obj_hatch.png | 32x28 | WorldResources.png |
 | world_clean/obj_hatch_open.png | 32x23 | obj_hatchladder.png |
 | world_clean/obj_ladder.png | 10x16 | obj_hatchladder.png |
@@ -162,15 +184,28 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/obj_last_stand_pack.png | 19x20 | WorldResources.png |
 | world_clean/obj_locker.png | 12x32 | bunker_stations.png |
 | world_clean/obj_logs.png | 21x14 | obj_trees.png |
+| world_clean/obj_mine_cart.png | 34x29 | MineObjects.png |
+| world_clean/obj_mine_exit.png | 28x40 | MineObjects.png |
+| world_clean/obj_mine_lamp.png | 11x26 | MineObjects.png |
+| world_clean/obj_mine_support.png | 56x46 | MineObjects.png |
+| world_clean/obj_mushroom.png | 14x14 | MineObjects.png |
 | world_clean/obj_puddle.png | 31x12 | WorldResources.png |
+| world_clean/obj_shelf.png | 23x23 | Water.png |
 | world_clean/obj_sign.png | 14x23 | WorldResources.png |
+| world_clean/obj_stove.png | 19x34 | Water.png |
+| world_clean/obj_stove_lit.png | 19x34 | Water.png |
 | world_clean/obj_stump.png | 29x16 | obj_trees.png |
+| world_clean/obj_supply_crate.png | 26x12 | BombCrateItems.png |
 | world_clean/obj_tree_dead.png | 50x80 | obj_trees.png |
 | world_clean/obj_tree_oak.png | 83x112 | obj_trees.png |
 | world_clean/obj_tree_oak_orange.png | 79x112 | obj_trees.png |
 | world_clean/obj_tree_pine.png | 82x128 | obj_trees.png |
 | world_clean/obj_tree_sapling.png | 23x48 | obj_trees.png |
 | world_clean/obj_upgrade_bench.png | 40x32 | bunker_stations.png |
+| world_clean/obj_water_drip.png | 20x18 | MineObjects.png |
+| world_clean/obj_water_filter.png | 29x33 | Water.png |
+| world_clean/obj_water_filter_on.png | 29x33 | Water.png |
+| world_clean/obj_water_pool.png | 30x11 | MineObjects.png |
 | world_clean/obj_workbench.png | 38x32 | bunker_stations.png |
 | world_clean/pickup_circuits.png | 16x14 | PickUpItems.png |
 | world_clean/pickup_concrete.png | 16x12 | PickUpItems.png |
@@ -192,6 +227,11 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/scar_scavenger.png | 22x24 | Scars.png |
 | world_clean/scar_steady.png | 23x24 | Scars.png |
 | world_clean/scar_thick_skin.png | 21x24 | Scars.png |
+| world_clean/tile_crater_ground.png | 16x16 | BombCrateItems.png |
+| world_clean/tile_crater_under.png | 16x16 | BombCrateItems.png |
+| world_clean/tile_mine_ceiling.png | 16x16 | MineObjects.png |
+| world_clean/tile_mine_floor.png | 16x16 | MineObjects.png |
+| world_clean/tile_mine_wall.png | 16x16 | MineObjects.png |
 | world_clean/tile_shaft_wall.png | 16x16 | obj_hatchladder.png |
 | world_clean/tiles_bunker.png | 64x32 | Build.png |
 | world_clean/tiles_bunker_brick_damaged.png | 16x16 | Build.png |
@@ -203,6 +243,8 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/tiles_bunker_steel_plate.png | 16x16 | Build.png |
 | world_clean/tiles_bunker_wood_planks.png | 16x16 | Build.png |
 | world_clean/tiles_crack.png | 64x16 | tiles_crack.png |
+| world_clean/tiles_crater.png | 64x32 | BombCrateItems.png |
+| world_clean/tiles_mine.png | 64x32 | MineObjects.png |
 | world_clean/tiles_ore.png | 64x32 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
 | world_clean/tiles_ore_bedrock.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
 | world_clean/tiles_ore_bones.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |

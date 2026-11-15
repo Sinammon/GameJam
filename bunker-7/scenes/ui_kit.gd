@@ -23,6 +23,20 @@ static func tex(name: String) -> Texture2D:
 		return load(path) as Texture2D
 	return null
 
+# Icon file (in world_clean, no extension) for an item kind or a book / station id: the survival
+# art first (clean water bottle, cooked meat ...), then icon_<kind>. Missing files fall through.
+const ICON_ALIAS := {
+	"water": ["icon_clean_water", "icon_water"], "food": ["icon_cooked_meat", "icon_food"],
+	"cook_meat": ["icon_cooked_meat"], "mushroom_stew": ["icon_mushroom"], "boil_water": ["icon_clean_water"],
+	"filter": ["icon_clean_water"], "purifier": ["obj_water_filter", "bld_purifier"], "stove": ["obj_stove"],
+	"locker": ["icon_canned_food"],
+}
+static func item_icon(kind: String) -> String:
+	for n in ICON_ALIAS.get(kind, []):
+		if ResourceLoader.exists("res://art/world_clean/%s.png" % n):
+			return n
+	return "icon_" + kind
+
 # A picture at its own pixel size (scale = whole-number zoom), or null if missing.
 static func picture(name: String, scale: int = 1) -> TextureRect:
 	var t := tex(name)
@@ -179,6 +193,7 @@ static func button(text: String, min_size: Vector2 = Vector2(120, 24), size: int
 	b.custom_minimum_size = min_size
 	b.focus_mode = Control.FOCUS_NONE   # keeps keyboard cheats from clicking buttons
 	b.add_theme_font_size_override("font_size", fs(size))
+	_add_button_sounds(b)
 	var normal := _tex_box("world_clean/ui_button_normal", 7, 5)
 	var pressed := _tex_box("world_clean/ui_button_pressed", 7, 5)
 	if normal != null and pressed != null:
@@ -204,6 +219,22 @@ static func button(text: String, min_size: Vector2 = Vector2(120, 24), size: int
 	b.add_theme_stylebox_override("disabled", _box(Color(0.14, 0.15, 0.17)))
 	b.add_theme_color_override("font_disabled_color", Color(0.4, 0.42, 0.44))
 	return b
+
+# Hover / click sounds for every UIKit button. The click name comes from the "sfx" meta
+# (set_click_sfx; "" = silent, e.g. when the action plays its own sound), default ui_click.
+static func _add_button_sounds(b: Button) -> void:
+	b.mouse_entered.connect(func() -> void:
+		if not b.disabled:
+			_sfx("ui_hover"))
+	b.pressed.connect(func() -> void: _sfx(str(b.get_meta("sfx", "ui_click"))))
+
+static func set_click_sfx(b: Button, sound: String) -> Button:
+	b.set_meta("sfx", sound)
+	return b
+
+static func _sfx(sound: String) -> void:
+	if sound != "":
+		Sfx.play(sound)
 
 # A centered column that fills the screen. Add your labels/buttons to the returned box.
 static func center_column(parent: Control, gap: int = 6) -> VBoxContainer:

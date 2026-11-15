@@ -5,8 +5,9 @@ extends RefCounted
 # game_state.gd logs one warning and uses a default instead of crashing.
 # Values are also type-checked (int/float mix-ups, bad pack data).
 
-# water/food were added later (scavenging for Hard); GameState banks them too.
-const ITEM_KINDS := ["wood", "concrete", "scrap", "circuits", "water", "food"]
+# water/food were added later (scavenging for Hard); V3 adds the survival supplies and the radio part.
+const ITEM_KINDS := ["wood", "concrete", "scrap", "circuits", "water", "food",
+	"dirty_water", "raw_meat", "mushroom", "canned_food", "bandage", "radio_part"]
 
 static var _warned := {}
 
@@ -89,7 +90,43 @@ static func day() -> int:
 		return clampi(int(v), 1, 99)
 	return 1
 
-# Always returns {} or {"items": {ITEM_KINDS: int}, "position": Vector2}.
+# --- V3, optional (quiet defaults when GameState doesn't have them) ---
+static func _opt(method: String, default: Variant) -> Variant:
+	if not has(method):
+		return default
+	var v: Variant = _gs().call(method)
+	return v if typeof(v) == typeof(default) else default
+
+# Where this trip goes (Locations id).
+static func location() -> String:
+	var v: Variant = _opt("get_location", "surface")
+	return v if Locations.has(v) else "surface"
+
+# {"water": 0..100, "food": 0..100} thirst/hunger meters at the start of the trip.
+static func meters() -> Dictionary:
+	var m: Dictionary = _opt("get_meters", {})
+	return {"water": float(m.get("water", Survival.START)), "food": float(m.get("food", Survival.START))}
+
+static func meter_drain() -> Dictionary:
+	var m: Dictionary = _opt("get_meter_drain", {})
+	return {"water": float(m.get("water", 1.0)), "food": float(m.get("food", 1.0))}
+
+# Supplies packed in the locker for this trip (they start in the backpack).
+static func trip_supplies() -> Dictionary:
+	return clean_items(_opt("get_trip_supplies", {}))
+
+static func zombie_multiplier() -> float:
+	return clampf(float(_opt("get_zombie_multiplier", 1.0)), 0.0, 4.0)
+
+static func goal_text() -> String:
+	return str(_opt("get_goal_text", ""))
+
+# Reported right before bank_loot / player_died (not an ending call).
+static func set_meters(water: float, food: float) -> void:
+	if has("set_meters"):
+		_gs().call("set_meters", water, food)
+
+# Always returns {} or {"items": {ITEM_KINDS: int}, "position": Vector2, "location": id?}.
 # A pack with nothing in it, or with garbage data, counts as no pack.
 static func last_stand_pack() -> Dictionary:
 	var v: Variant = _call("get_last_stand_pack")
@@ -104,9 +141,12 @@ static func last_stand_pack() -> Dictionary:
 	var pos: Variant = v.get("position", null)
 	if pos is Vector2i:
 		pos = Vector2(pos)
-	if not (pos is Vector2):
-		return {"items": items}   # caller picks a default spot
-	return {"items": items, "position": pos}
+	var out := {"items": items}
+	if v.get("location") is String:
+		out["location"] = v["location"]
+	if pos is Vector2:
+		out["position"] = pos   # else the caller picks a default spot
+	return out
 
 # Only the contract keys (ITEM_KINDS), as non-negative ints.
 static func clean_items(src: Dictionary) -> Dictionary:

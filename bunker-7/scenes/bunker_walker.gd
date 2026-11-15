@@ -21,6 +21,8 @@ var moving := false
 var sprite: AnimatedSprite2D = null
 var body: ColorRect = null
 var _climb_tween: Tween
+var _step_left := 0.0
+var _step_alt := false
 
 func _ready() -> void:
 	_build_sprite()
@@ -74,6 +76,13 @@ func _physics_process(delta: float) -> void:
 	if moving:
 		facing = signf(dir)
 		position.x = clampf(position.x + dir * SPEED * delta, min_x, max_x)
+		_step_left -= delta
+		if _step_left <= 0.0:
+			_step_left = 0.34
+			_step_alt = not _step_alt
+			Sfx.play("footstep_2" if _step_alt else "footstep_1", -2.0, 0.08)
+	else:
+		_step_left = 0.05
 	if sprite:
 		if sprite.animation == "wakeup" and sprite.is_playing() and not moving:
 			return
@@ -91,6 +100,7 @@ func climb_to(to: Vector2) -> void:
 	if _climb_tween:
 		_climb_tween.kill()
 	var time := maxf(0.2, position.distance_to(to) / CLIMB_SPEED)
+	Sfx.play("ladder_climb")
 	_climb_tween = create_tween()
 	_climb_tween.tween_property(self, "position", to, time)
 	_climb_tween.tween_callback(_on_climb_done)

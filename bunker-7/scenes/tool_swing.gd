@@ -3,7 +3,7 @@ extends Node2D
 # Aim: towards the mouse once the mouse has moved, else the facing direction.
 # Axe:     hits zombies (lightly), chops trees.
 # Pickaxe: hits zombies, digs the block in reach (scenes/mining.gd), barely scratches trees.
-# Other tools do nothing yet.
+# Both hit rats (raw meat). Canteen / medkit are handled by the expedition (drink / bandage).
 # Swing picture: survivor_chop / survivor_mine animation, or a small drawn arc.
 
 # Tuning (see V2_NOTES.md)
@@ -58,6 +58,7 @@ func use(tool_id: String) -> String:
 	if _cooldown > 0.0:
 		return ""
 	_cooldown = COOLDOWN
+	Sfx.play("swing", 0.0, 0.1)
 	var aim: Variant = null
 	if mouse_aim:
 		aim = get_global_mouse_position()
@@ -90,6 +91,11 @@ func _apply(tool_id: String, dir: float, aim: Variant) -> String:
 	if hit_any:
 		ex.shake(1.5, 0.1)
 		return "zombie"
+	# 1b. rats (V3): one hit, raw meat
+	for c in get_tree().get_nodes_in_group("critters"):
+		if not c.is_dead() and box.intersects(c.hit_rect()):
+			c.take_hit(1.0, player.global_position.x)
+			return "critter"
 	# 2. pickaxe: the block in reach (or a tree if the mouse is on it)
 	if tool_id == "pickaxe":
 		var tree := _tree_in(box)

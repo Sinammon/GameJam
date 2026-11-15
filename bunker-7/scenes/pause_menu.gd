@@ -24,6 +24,8 @@ var settings_page: VBoxContainer
 var resume_button: Button
 var settings_button: Button
 var tutorial_button: Button
+var book_button: Button
+var book: CanvasLayer = null      # scenes/book.gd while open
 var menu_button: Button
 var quit_button: Button
 var music_slider: HSlider
@@ -77,6 +79,7 @@ func _build() -> void:
 	resume_button = _button(main_page, "Resume", _on_resume)
 	settings_button = _button(main_page, "Settings", open_settings)
 	tutorial_button = _button(main_page, "Tutorial", _on_tutorial)
+	book_button = _button(main_page, "Crafts / Book", open_book)
 	menu_button = _button(main_page, "Main menu", _on_main_menu)
 	quit_button = _button(main_page, "Quit", _on_quit)
 	quit_button.visible = not OS.has_feature("web")
@@ -115,6 +118,9 @@ func _build() -> void:
 	lq_row.add_child(lights_option)
 
 	back_button = _button(settings_page, "Back", close_settings)
+	UIKit.set_click_sfx(resume_button, "")   # close() plays popup_close
+	UIKit.set_click_sfx(back_button, "ui_back")
+	UIKit.set_click_sfx(menu_button, "ui_back")
 
 func _button(parent: Control, text: String, handler: Callable) -> Button:
 	var b := UIKit.button(text, Vector2(150, 22), 10)
@@ -165,6 +171,9 @@ func _input(event: InputEvent) -> void:
 	if _tutorial_is_open():
 		return
 	get_viewport().set_input_as_handled()
+	if book != null and is_instance_valid(book):
+		book.close()   # Esc closes the book first, back to the menu
+		return
 	if not is_open:
 		open()
 	elif settings_page.visible:
@@ -178,6 +187,7 @@ func open() -> void:
 	is_open = true
 	_was_paused = get_tree().paused
 	get_tree().paused = true
+	Sfx.play("popup_open")
 	main_page.visible = true
 	settings_page.visible = false
 	_root.visible = true
@@ -186,9 +196,12 @@ func open() -> void:
 func close() -> void:
 	if not is_open:
 		return
+	if book != null and is_instance_valid(book):
+		book.close()
 	is_open = false
 	_root.visible = false
 	get_tree().paused = _was_paused
+	Sfx.play("popup_close")
 	resumed.emit()
 
 func toggle() -> void:
@@ -206,6 +219,19 @@ func close_settings() -> void:
 	settings_page.visible = false
 	main_page.visible = true
 	settings_button.grab_focus()
+
+# Crafts / Book: every item, station, recipe and place (scenes/book.gd, data from GuideData).
+func open_book() -> void:
+	if book != null and is_instance_valid(book):
+		return
+	book = load("res://scenes/book.gd").new()
+	add_child(book)
+	book.closed.connect(_on_book_closed)
+
+func _on_book_closed() -> void:
+	book = null
+	if is_open and book_button != null:
+		book_button.grab_focus.call_deferred()
 
 # ---------------------------------------------------------------- button handlers
 

@@ -16,6 +16,9 @@ extends Node2D
 #   locker: stock popup                                    upgrade bench: backpack tiers
 #   workbench (one per unlocked room with buildings): build / repair popup
 #   locked door: unlock popup
+#   V3: Water Filter (dirty -> clean water) and Stove (cook / boil) once built in the Utility Room;
+#   the locker also eats / drinks / bandages and packs supplies for the trip; the ladder asks
+#   where to go once the Old Mine / Bomb Crater are open (GameState.go_outside(location)).
 # All rules live in GameState; this scene only calls can_* / build / unlock_room / repair_room /
 # upgrade_backpack / sleep / go_outside and redraws on GameState.changed.
 # Arrival (GameState.bunker_arrival): "hatch" = climb down the shaft from the surface (after
@@ -51,7 +54,12 @@ const STATION_X := {
 	"garden": {"workbench": 50},
 	"radio": {"workbench": 52},
 }
-const BUILD_X := {"purifier": 112, "filter": 170, "garden": 132, "radio": 120}
+const BUILD_X := {"purifier": 96, "stove": 142, "filter": 192, "garden": 132, "radio": 120}
+# Art tried in order for a building (V3 station art from bunker_stations2 first, has-file fallback).
+const BUILD_ART := {"purifier": ["obj_water_filter", "bld_purifier"], "stove": ["obj_stove", "bld_stove"]}
+# ... and the picture in front of those while it works: the filter with water in it, the stove's fire.
+const BUILD_ART_ON := {"purifier": "obj_water_filter_on", "stove": "obj_stove_lit"}
+const SHELF_X := {"utility": 168}   # a pantry shelf (obj_shelf, scenery) between the stove and the air filter
 const LAMP_X := {"bedroom": 88, "utility": 117, "garden": 117, "storage": 76, "radio": 78}   # painted lamps
 const ROOM_COLORS := {
 	"bedroom": Color(0.30, 0.24, 0.20), "utility": Color(0.22, 0.27, 0.30), "garden": Color(0.20, 0.30, 0.20),
@@ -60,10 +68,12 @@ const ROOM_COLORS := {
 const BUILDING_COLORS := {
 	"cot": Color(0.55, 0.40, 0.30), "door": Color(0.50, 0.50, 0.55), "purifier": Color(0.30, 0.55, 0.80),
 	"filter": Color(0.60, 0.65, 0.65), "garden": Color(0.35, 0.70, 0.35), "radio": Color(0.85, 0.55, 0.25),
+	"stove": Color(0.30, 0.28, 0.27),
 }
 const STATION_LABEL := {
 	"ladder": "Climb up", "cot": "Sleep", "calendar": "Calendar", "locker": "Stock",
 	"upgrade": "Backpack", "workbench": "Build", "door": "Unlock",
+	"purifier": "Filter water", "stove": "Cook",
 }
 
 # --- Look ------------------------------------------------------------------------------
@@ -90,6 +100,7 @@ var _prompt: Node2D
 var _prompt_label: Label
 var _hud_layer: CanvasLayer
 var _hud_row: Control = null
+var _goal_label: Label
 var _banner: PanelContainer
 var _banner_label: Label
 var _banner_left := 0.0
@@ -300,12 +311,16 @@ func _add_room(id: String, reachable: bool) -> void:
 		if b == "door":
 			continue   # the Reinforced Door is drawn on the seam / hatch (see _add_door, _reinforced_door)
 		_building(room, b, BUILD_X.get(b, 117), GameState.is_built(b), damaged)
+		if b in ["purifier", "stove"] and GameState.is_built(b):   # V3 stations: E at them
+			stations.append({"kind": b, "x": x + BUILD_X[b], "room": id})
 	if id == HOME:   # Reinforced Door: a steel door by the hatch on the surface (it guards the way in)
 		var holder := Node2D.new()
 		holder.name = "ReinforcedDoor"
 		holder.position = Vector2(shaft_x() + 34, SURFACE_Y + 3 - 66) - room.position
 		room.add_child(holder)
 		_building(holder, "door", 0, GameState.is_built("door"), damaged)
+	if SHELF_X.has(id):
+		_put(room, "obj_shelf", Vector2(SHELF_X[id], 66))
 	# stations
 	for kind in STATION_X.get(id, {}):
 		var sx: float = x + STATION_X[id][kind]
@@ -330,13 +345,32 @@ func _add_room(id: String, reachable: bool) -> void:
 		l.size = Vector2(ROOM_W, 10)
 		room.add_child(l)
 
+# The filter shows water while there is dirty water to filter; the stove burns while it works.
+func _station_on(b_id: String) -> bool:
+	if b_id == "purifier":
+		return GameState.is_working("purifier") and GameState.dirty_water > 0
+	return GameState.is_working(b_id)
+
 func _station_art(room: Node2D, file: String, cx: float, size: Vector2, fallback: Color) -> void:
 	if _put(room, file, Vector2(cx, 66)) == null:
 		_rect(room, Rect2(cx - size.x / 2.0, 66 - size.y, size.x, size.y), fallback)
 
 # A building on the floor: the bld_ art (or a labelled block); not built yet = a faint ghost.
 func _building(room: Node2D, b_id: String, cx: float, built: bool, damaged: bool) -> void:
-	var node: CanvasItem = _put(room, "bld_" + b_id, Vector2(cx, 66))
+	var node: CanvasItem = null
+	var files: Array = BUILD_ART.get(b_id, ["bld_" + b_id]).duplicate()
+	if built and not damaged and BUILD_ART_ON.has(b_id) and _station_on(b_id):
+		files.push_front(BUILD_ART_ON[b_id])
+	for file in files:
+		node = _put(room, file, Vector2(cx, 66))
+		if node != null:
+			break
+	if node == null and b_id == "stove":   # placeholder iron stove with a fire window and a pipe
+		var r := _rect(room, Rect2(cx - 12, 44, 24, 22), BUILDING_COLORS.stove)
+		_rect(r, Rect2(4, 10, 16, 7), Color(1.0, 0.55, 0.2) if built and not damaged else Color(0.15, 0.12, 0.1))
+		_rect(r, Rect2(-1, 0, 26, 3), Color(0.4, 0.38, 0.36))
+		_rect(r, Rect2(16, -14, 4, 14), Color(0.25, 0.24, 0.23))
+		node = r
 	if node == null:
 		var r := _rect(room, Rect2(cx - 13, 44, 26, 22), BUILDING_COLORS.get(b_id, Color.GRAY))
 		var l := UIKit.label(b_id.capitalize(), 7, Color(0.05, 0.05, 0.05))
@@ -406,9 +440,16 @@ func _build_overlays() -> void:
 	add_child(_hud_layer)
 	var strip := ColorRect.new()
 	strip.color = Color(0.05, 0.05, 0.06, 0.78)
-	strip.size = Vector2(VIEW.x, 17)
+	strip.size = Vector2(VIEW.x, 29)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_layer.add_child(strip)
+	# V3: today's goal and the thirst / hunger meters, a second line of the top bar
+	_goal_label = UIKit.outlined("", 7, UIKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+	_goal_label.position = Vector2(4, 15)
+	_goal_label.size = Vector2(VIEW.x - 8, 13)
+	_goal_label.clip_text = true
+	_goal_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_hud_layer.add_child(_goal_label)
 
 	_banner = PanelContainer.new()
 	_banner.add_theme_stylebox_override("panel", UIKit.shade_style(5))
@@ -451,6 +492,16 @@ func _refresh_hud() -> void:
 	_hud_row.position = Vector2(0, 1)
 	_hud_row.size = Vector2(VIEW.x, 15)
 	_hud_layer.add_child(_hud_row)
+	if _goal_label:
+		_goal_label.text = "Thirst %d  Hunger %d   %s" % [int(gs.water_meter), int(gs.food_meter), _goal_line()]
+
+# "Goal: Bring home 8 scrap. (scrap 3/8)" or "Done: ..." for the top bar and the day banner.
+func _goal_line() -> String:
+	var t: String = GameState.get_goal_text()
+	var prog: String = GameState.goal_progress_text()
+	if prog != "" and not GameState.goal_done:
+		t += " (%s)" % prog
+	return t
 
 func banner(text: String, time := BANNER_TIME) -> void:
 	_banner_label.text = text
@@ -524,6 +575,7 @@ func _arrive() -> void:
 		walker.can_walk = false
 		_fade.color.a = 1.0
 		create_tween().tween_property(_fade, "color:a", 0.0, FADE_TIME)
+		Sfx.play("hatch_close", -3.0)
 		walker.climb_to(Vector2(shaft_x(), FLOOR_Y))
 		await walker.climb_finished
 		busy = false
@@ -539,6 +591,7 @@ func _arrive() -> void:
 		camera.position = Vector2(walker.position.x, VIEW.y / 2.0)
 		camera.reset_smoothing()
 		walker.wake_up()
+		Sfx.play("day_start")
 		busy = false
 		_fade.color.a = 1.0
 		create_tween().tween_property(_fade, "color:a", 0.0, FADE_TIME)
@@ -570,10 +623,13 @@ func _open_tutorial() -> void:
 
 func _day_text() -> String:
 	var gs := GameState
-	var t := "Day %d of %d. Water %d, food %d." % [gs.day, gs.MAX_DAY, gs.water, gs.food]
+	var t := "Day %d of %d. %s" % [gs.day, gs.MAX_DAY, gs.get_goal_text()]
+	var note: String = DayPlan.note_text(gs.day)
+	if note != "":
+		t += " " + note
 	if gs.skip_expedition:
 		t += " A radiation storm rages outside: stay in today."
-	elif gs.tomorrow_rad_mult > 1.0:
+	elif gs.tomorrow_rad_mult > 1.0 and not note.contains("Storm"):
 		t += " Storm: radiation x%s outside today." % str(gs.tomorrow_rad_mult)
 	if gs.bonus_crate:
 		t += " Stranger's supplies: crates are fuller today."
@@ -586,15 +642,31 @@ func _banked_text() -> String:
 	var parts: PackedStringArray = []
 	for k in GameState.LOOT_KINDS:
 		if got.has(k):
-			parts.append("+%d %s" % [int(got[k]), k])
-	return "Stored in the locker: " + ", ".join(parts)
+			parts.append("+%d %s" % [int(got[k]), GameState.item_name(k)])
+	var t := "Stored in the locker: " + ", ".join(parts)
+	if str(GameState.get("goal_message")) != "":
+		t += " " + str(GameState.goal_message)
+	return t
 
-# E at the foot of the ladder: climb up and start today's expedition.
-func climb_up() -> void:
+# E at the foot of the ladder: where to? (only the surface open: go straight up)
+func use_ladder() -> void:
 	var why: String = GameState.go_outside_block()
 	if why != "":
 		banner(why)
 		return
+	for id in Locations.ORDER:
+		if id != "surface" and GameState.is_location_unlocked(id):
+			_open_popup("ladder", HOME)
+			return
+	climb_up("surface")
+
+# Climb up and start today's expedition to `location`.
+func climb_up(location := "surface") -> void:
+	var why: String = GameState.go_outside_block(location)
+	if why != "":
+		banner(why)
+		return
+	close_popup()
 	busy = true
 	walker.can_walk = false
 	near = {}
@@ -609,13 +681,14 @@ func climb_up() -> void:
 	await walker.climb_finished
 	if _fade.color.a < 1.0:
 		await tw.finished
-	GameState.go_outside()
+	GameState.go_outside(location)
 
 func sleep_now() -> void:
 	if _slept:
 		return
 	_slept = true
 	busy = true
+	Sfx.play("sleep")
 	walker.can_walk = false
 	close_popup()
 	if pause_menu:
@@ -677,7 +750,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func use_station(s: Dictionary) -> void:
 	match s.kind:
 		"ladder":
-			climb_up()
+			use_ladder()
+		"purifier":
+			_open_popup("purifier", s.room)
+		"stove":
+			_open_popup("stove", s.room)
 		"cot":
 			_open_popup("cot", s.room)
 		"calendar":
@@ -713,9 +790,10 @@ func _fill_popup() -> void:
 	match kind:
 		"cot":
 			popup.title("Cot")
-			var water_need := int(gs.settings.water_need) - (1 if gs.has_scar("iron_gut") else 0)
-			popup.line("Sleep until tomorrow. Tonight you drink %d water and eat %d food (you have %d and %d)."
-					% [maxi(0, water_need), int(gs.settings.food_need), gs.water, gs.food])
+			popup.line("Sleep until tomorrow. The night makes you thirsty and hungry; you drink %d water and eat %d meal (you have %d and %d)."
+					% [gs.night_water_need(), gs.night_food_need(), gs.water, gs.food])
+			if gs.water < gs.night_water_need() or gs.food < gs.night_food_need():
+				popup.line("Not enough in the locker: if a meter runs empty tonight you lose health.", UIKit.BAD)
 			if not gs.went_outside and not gs.skip_expedition:
 				popup.line("You haven't been outside today: sleeping now skips the day.", UIKit.BAD)
 			popup.row("Day %d of %d" % [gs.day, gs.MAX_DAY], "", "Sleep", "sleep", true, sleep_now)
@@ -727,14 +805,25 @@ func _fill_popup() -> void:
 			popup.line("Bounces left: %d   Scars: %s" % [gs.bounces, gs.scar_names_text()], UIKit.DIM)
 		"locker":
 			popup.title("Locker")
-			popup.line("Your stock. Loot you carry down the hatch lands here.", UIKit.DIM)
 			popup.add_node(UIKit.icon_row([
-				["icon_water", "Water", str(gs.water)], ["icon_food", "Food", str(gs.food)],
-				["icon_health", "Health", "%d/%d" % [gs.health, gs.MAX_HEALTH]]], 9, 10))
+				[UIKit.item_icon("water"), "Water", str(gs.water)], [UIKit.item_icon("food"), "Meals", str(gs.food)],
+				["icon_dirty_water", "Dirty", str(gs.dirty_water)], ["icon_raw_meat", "Meat", str(gs.raw_meat)],
+				["icon_mushroom", "Mush.", str(gs.mushroom)]], 9, 8))
 			popup.add_node(UIKit.icon_row([
 				["icon_wood", "Wood", str(gs.wood)], ["icon_concrete", "Concrete", str(gs.concrete)],
-				["icon_scrap", "Scrap", str(gs.scrap)], ["icon_circuits", "Circuits", str(gs.circuits)]], 9, 10))
-			popup.line("Backpack tier %d: carry %d items." % [gs.get_backpack_tier(), gs.get_carry_limit()], UIKit.DIM)
+				["icon_scrap", "Scrap", str(gs.scrap)], ["icon_circuits", "Circuits", str(gs.circuits)],
+				["icon_bandage", "Bandage", str(gs.bandage)], ["icon_radio_part", "Radio part", str(gs.radio_part)]], 9, 6))
+			popup.line("Thirst %d/100  Hunger %d/100  Health %d/%d" % [int(gs.water_meter), int(gs.food_meter), gs.health, gs.MAX_HEALTH], UIKit.TEXT)
+			popup.button_row([["Drink", "drink", gs.can_consume_stock("water"), _do.bind("consume", "water")],
+				["Eat", "eat", gs.can_consume_stock("food"), _do.bind("consume", "food")],
+				["Bandage", "bandage", gs.can_consume_stock("bandage"), _do.bind("consume", "bandage")]])
+			var packed := PackedStringArray()
+			for k in gs.PACKABLE:
+				packed.append("%s %d" % [gs.item_name(k), int(gs.packed.get(k, 0))])
+			popup.line("Take on the trip: %s (uses carry space)." % ", ".join(packed), UIKit.DIM, 7)
+			popup.button_row([["+Water", "pack_water", gs.can_pack("water"), _do.bind("pack", "water")],
+				["+Meal", "pack_food", gs.can_pack("food"), _do.bind("pack", "food")],
+				["+Bandage", "pack_bandage", gs.can_pack("bandage"), _do.bind("pack", "bandage")]])
 		"upgrade":
 			var tier: int = gs.get_backpack_tier()
 			popup.title("Upgrade bench")
@@ -759,6 +848,29 @@ func _fill_popup() -> void:
 				var built: bool = gs.is_built(b)
 				popup.row(info.name, "%s. %s" % [info.get("desc", ""), "Built." if built else "Costs " + gs.cost_text(info.cost)],
 						"Built" if built else "Build", "build_" + b, gs.can_build(b), _do.bind("build", b))
+		"ladder":
+			popup.title("Where to?")
+			for id in Locations.ORDER:
+				var lock: String = gs.location_lock_text(id)
+				var cfg: Dictionary = Locations.get_config(id)
+				popup.row(cfg.name, lock if lock != "" else "Radiation x%s. %s" % [str(cfg.rad), _short(cfg.desc)],
+						"Go" if lock == "" else "Locked", "go_" + id, lock == "", climb_up.bind(id))
+		"purifier":
+			popup.title("Water Filter")
+			popup.line("Dirty water in, clean water out (1 for 1). At night it filters up to %d on its own." % gs.FILTER_NIGHT_MAX, UIKit.DIM)
+			popup.add_node(UIKit.icon_row([["icon_dirty_water", "Dirty water", str(gs.dirty_water)],
+				[UIKit.item_icon("water"), "Clean water", str(gs.water)]], 9, 12))
+			popup.button_row([["Filter 1", "filter_1", gs.can_filter(), _do.bind("filter", "1")],
+				["Filter all", "filter_all", gs.can_filter(), _do.bind("filter", "99")]], 70)
+		"stove":
+			popup.title("Stove")
+			popup.line("Wood is the fuel.", UIKit.DIM)
+			popup.add_node(UIKit.icon_row([["icon_raw_meat", "Raw meat", str(gs.raw_meat)], ["icon_mushroom", "Mushrooms", str(gs.mushroom)],
+				["icon_dirty_water", "Dirty water", str(gs.dirty_water)], ["icon_wood", "Wood", str(gs.wood)]], 9, 8))
+			for id in gs.RECIPES:
+				var r: Dictionary = gs.RECIPES[id]
+				popup.row(r.name, "%s -> %s" % [gs.cost_text(r["in"]), gs.cost_text(r["out"])], "Cook", "cook_" + id,
+						gs.can_cook(id), _do.bind("cook", id))
 		"door":
 			var info: Dictionary = gs.ROOMS[room]
 			popup.title(info.name)
@@ -769,6 +881,11 @@ func _fill_popup() -> void:
 				popup.row("Unlock", "Costs " + gs.cost_text(info.cost), "Unlock", "unlock",
 						gs.can_unlock(room), _do.bind("unlock", room))
 	popup.finish()
+
+# First sentence of a description (popup notes stay short).
+static func _short(text: String) -> String:
+	var i := text.find(". ")
+	return text if i < 0 else text.left(i + 1)
 
 func _room_use(room: String) -> String:
 	if room == "storage":
@@ -792,6 +909,7 @@ func _backpack_row(tier: int, text: String) -> HBoxContainer:
 # A popup button: run the GameState call, then refill the popup (or close it for an unlock).
 func _do(what: String, id: String) -> void:
 	var ok := false
+	var goal_before: bool = GameState.goal_done
 	match what:
 		"upgrade":
 			ok = GameState.upgrade_backpack()
@@ -805,13 +923,44 @@ func _do(what: String, id: String) -> void:
 			ok = GameState.repair_room(id)
 			if ok:
 				banner("The %s is repaired." % GameState.ROOMS[id].name)
+		"consume":
+			ok = GameState.consume_stock(id)
+		"pack":
+			ok = GameState.pack_item(id)
+		"filter":
+			var n: int = GameState.filter_water(int(id))
+			ok = n > 0
+			if ok:
+				banner("Filtered %d dirty water into clean water." % n)
+		"cook":
+			ok = GameState.cook(id)
+			if ok:
+				banner("Cooked: %s." % GameState.RECIPES[id].name)
 		"unlock":
 			ok = GameState.unlock_room(id)
 			if ok:
+				Sfx.play("door_open")
 				banner("The %s is open." % GameState.ROOMS[id].name)
 				close_popup()
 				return
+	_do_sound(what, id, ok)
+	if ok and GameState.goal_done and not goal_before:
+		banner(GameState.goal_message, 6.0)
 	_fill_popup()
+
+func _do_sound(what: String, id: String, ok: bool) -> void:
+	if not ok:
+		Sfx.play("build_fail")
+		return
+	match what:
+		"consume":
+			Sfx.play("drink" if id in ["water", "dirty_water"] else ("drop" if id == "bandage" else "eat"))
+		"pack":
+			Sfx.play("pickup")
+		"filter":
+			Sfx.play("drink", -3.0)
+		_:
+			Sfx.play("build_ok")
 
 func close_popup() -> void:
 	if popup != null and is_instance_valid(popup):

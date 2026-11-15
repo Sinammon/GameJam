@@ -35,6 +35,7 @@ func _ready() -> void:
 	box = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3)
 	_panel.add_child(box)
+	Sfx.play("popup_open")
 
 # Removes all rows (the bunker refills the popup after a change).
 func clear() -> void:
@@ -77,12 +78,27 @@ func row(text: String, note: String, button_text: String, id: String, enabled: b
 	buttons[id] = b
 	return b
 
+# Several small buttons side by side: [[text, id, enabled, on_press], ...]. Returns the row.
+func button_row(items: Array, width := 60) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 4)
+	box.add_child(h)
+	for it in items:
+		var b := UIKit.button(str(it[0]), Vector2(width, 16), 8)
+		b.disabled = not bool(it[2])
+		b.focus_mode = Control.FOCUS_ALL
+		b.pressed.connect(it[3])
+		h.add_child(b)
+		buttons[str(it[1])] = b
+	return h
+
 func add_node(n: Control) -> void:
 	box.add_child(n)
 
 # Close button at the bottom + focus on the first enabled button.
 func finish() -> void:
-	var close_b := UIKit.button("Close (Esc)", Vector2(90, 16), 8)
+	var close_b := UIKit.set_click_sfx(UIKit.button("Close (Esc)", Vector2(90, 16), 8), "")   # close() plays popup_close
 	close_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_b.focus_mode = Control.FOCUS_ALL
 	close_b.pressed.connect(close)
@@ -100,6 +116,7 @@ func close() -> void:
 	if not is_open:
 		return
 	is_open = false
+	Sfx.play("popup_close")
 	closed.emit()
 	queue_free()
 

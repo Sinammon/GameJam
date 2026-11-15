@@ -15,7 +15,8 @@ signal backpack_toggled(open: bool)
 
 const TOOLS := ["axe", "pickaxe", "flashlight", "canteen", "medkit"]
 const TIER_SLOTS := [12, 16, 20, 24]     # backpack tiers 1..4
-const MATERIALS := ["wood", "concrete", "scrap", "circuits", "water", "food"]
+const MATERIALS := ["wood", "concrete", "scrap", "circuits", "water", "food",
+	"canned_food", "dirty_water", "raw_meat", "mushroom", "bandage", "radio_part"]
 
 var player: Node = null
 var selected := 0
@@ -33,11 +34,13 @@ func select(index: int) -> void:
 	var i := posmod(index, TOOLS.size())
 	if i == selected:
 		return
+	Sfx.play("flashlight_toggle" if "flashlight" in [TOOLS[i], TOOLS[selected]] else "slot_select")
 	selected = i
 	selection_changed.emit(i)
 
 func toggle_backpack() -> void:
 	backpack_open = not backpack_open
+	Sfx.play("popup_open" if backpack_open else "popup_close")
 	backpack_toggled.emit(backpack_open)
 
 # Unlocked slots = the carry limit. The grid is at least as big as the tier says.

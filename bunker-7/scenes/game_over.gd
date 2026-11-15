@@ -14,7 +14,7 @@ func _ready() -> void:
 	box.add_child(UIKit.outlined("Reached day %d of %d" % [mini(GameState.day, GameState.MAX_DAY), GameState.MAX_DAY], 10))
 	box.add_child(_wrapped("Built: " + GameState.built_names_text(), 10))
 	box.add_child(_wrapped("Scars: " + GameState.scar_names_text(), 10))
-	var b := UIKit.button("Main Menu", Vector2(140, 24))
+	var b := UIKit.set_click_sfx(UIKit.button("Main Menu", Vector2(140, 24)), "ui_back")
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(GameState.go_to.bind("res://scenes/main_menu.tscn"))
 	box.add_child(b)

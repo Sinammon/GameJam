@@ -15,7 +15,8 @@ const BASE_SPEED := 100.0
 const JUMP_VELOCITY := -290.0
 
 # What the player carries. Keys match the GameState contract.
-var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0, "water": 0, "food": 0}
+var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0, "water": 0, "food": 0,
+	"dirty_water": 0, "raw_meat": 0, "mushroom": 0, "canned_food": 0, "bandage": 0, "radio_part": 0}
 var dead := false
 var frozen := false            # true after banking: no more input
 var speed := BASE_SPEED
@@ -26,6 +27,11 @@ var _stun_left := 0.0          # > 0 after knockback: input doesn't steer
 var facing := 1.0              # -1 left, +1 right (last walking direction or swing aim)
 var held_tool := ""            # selected hotbar tool (set by the expedition); "flashlight" changes the idle pose
 var climbing := false          # true while climbing down into the hatch (no physics, climb anim)
+var _step_left := 0.0          # footstep timer
+var _step_alt := false
+var _was_on_floor := true
+var _fall_speed := 0.0
+const STEP_EVERY := 0.32
 
 const HealthScript := preload("res://actors/health.gd")
 const KNOCKBACK_SPEED := 170.0
@@ -152,6 +158,7 @@ func climb_into(top: Vector2, depth: float, time: float) -> void:
 	frozen = true
 	velocity = Vector2.ZERO
 	z_index = -1
+	Sfx.play("ladder_climb")
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", top, 0.12)
 	tw.tween_property(self, "global_position:y", top.y + depth, time)
@@ -172,6 +179,7 @@ func take_damage(amount: int, source: String, from_pos: Variant = null) -> bool:
 	hurt.emit(amount, source)
 	if dead:
 		return true   # this hit was the last one
+	Sfx.play("player_hurt", -4.0 if source == "radiation" else 0.0, 0.08)
 	_flash()
 	if from_pos is Vector2:
 		knockback(signf(global_position.x - from_pos.x))
@@ -216,9 +224,28 @@ func _physics_process(delta: float) -> void:
 		return
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
+		Sfx.play("jump", 0.0, 0.05)
 	velocity.x = Input.get_axis("move_left", "move_right") * speed
 	face(velocity.x)
+	_fall_speed = velocity.y
 	move_and_slide()
+	_step_sounds(delta)
+
+# Footsteps (alternating) while walking on the ground, a thud on landing.
+func _step_sounds(delta: float) -> void:
+	var on_floor := is_on_floor()
+	if on_floor and not _was_on_floor and _fall_speed > 120.0:
+		Sfx.play("land", 0.0, 0.06)
+		_step_left = STEP_EVERY
+	_was_on_floor = on_floor
+	if not on_floor or absf(velocity.x) < 1.0:
+		_step_left = minf(_step_left, 0.05)
+		return
+	_step_left -= delta
+	if _step_left <= 0.0:
+		_step_left = STEP_EVERY
+		_step_alt = not _step_alt
+		Sfx.play("footstep_2" if _step_alt else "footstep_1", 0.0, 0.08)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if dead or frozen or not event.is_action_pressed("interact"):
@@ -276,6 +303,14 @@ func add_item(kind: String, n: int) -> int:
 		items_changed.emit()
 	return added
 
+# Takes one of a kind out (eating, drinking, bandaging). false if none is carried.
+func use_item(kind: String) -> bool:
+	if int(items.get(kind, 0)) <= 0:
+		return false
+	items[kind] -= 1
+	items_changed.emit()
+	return true
+
 func clear_items() -> void:
 	for k in items:
 		items[k] = 0
@@ -288,6 +323,7 @@ func die(reason := "") -> void:
 	if dead:
 		return
 	dead = true
+	Sfx.play("player_death")
 	if reason != "":
 		death_reason = reason
 	if sprite and sprite.sprite_frames.has_animation("collapse"):

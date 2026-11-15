@@ -7,6 +7,7 @@ var _bounces: HBoxContainer
 var _stats: HBoxContainer
 var _materials: HBoxContainer
 var _note: Label
+var _goal: Label
 var _go: Button
 var _wait: Button
 var _box: VBoxContainer
@@ -23,10 +24,16 @@ func _ready() -> void:
 	_materials = HBoxContainer.new()
 	_box.add_child(_materials)
 
-	_note = UIKit.outlined("", 9, UIKit.BAD)
+	_goal = UIKit.outlined("", 9, UIKit.ACCENT)
+	_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_goal.custom_minimum_size = Vector2(300, 0)
+	_box.add_child(_goal)
+	_note = UIKit.outlined("", 9, UIKit.TEXT)
+	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_note.custom_minimum_size = Vector2(300, 0)
 	_box.add_child(_note)
 
-	_go = UIKit.button("Go Outside", Vector2(160, 28), 12)
+	_go = UIKit.set_click_sfx(UIKit.button("Go Outside", Vector2(160, 28), 12), "ui_confirm")
 	_go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_go.pressed.connect(_go_outside)
 	_box.add_child(_go)
@@ -65,12 +72,16 @@ func _refresh() -> void:
 		["icon_concrete", "Concrete", str(gs.concrete), UIKit.DIM],
 		["icon_scrap", "Scrap", str(gs.scrap), UIKit.DIM],
 		["icon_circuits", "Circuits", str(gs.circuits), UIKit.DIM]], 11)
+	_goal.text = gs.get_goal_text()
+	_goal.visible = _goal.text != ""
 	var notes: PackedStringArray = []
-	if gs.tomorrow_rad_mult > 1.0:
+	if DayPlan.note_text(gs.day) != "":
+		notes.append(DayPlan.note_text(gs.day))
+	elif gs.tomorrow_rad_mult > 1.0:
 		notes.append("Storm: radiation x%s today" % str(gs.tomorrow_rad_mult))
 	if gs.bonus_crate:
 		notes.append("Stranger's supplies: +50% loot today")
-	_note.text = "  ".join(notes)
+	_note.text = " ".join(notes)
 	_note.visible = not notes.is_empty()
 	_go.disabled = gs.skip_expedition
 	_go.text = "Storm outside: stay in" if gs.skip_expedition else "Go Outside"

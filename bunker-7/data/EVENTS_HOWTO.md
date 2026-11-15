@@ -17,6 +17,9 @@ Night events live in `data/events.json`. You don't need to touch any code.
        If they can't pay, the button is greyed out. **The other option must have no cost**, so nobody gets stuck.
      - `"unless": "door"` (optional): the effects are skipped if the Reinforced Door works.
        Then `"unless_text"` is shown instead of `"text"`.
+   - `"requires"` (optional, on the event): only picked when the locker has this, like `{"raw_meat": 1}`.
+   - `"forced_only": true` (optional, on the event): never picked at random; only a day in
+     `scenes/day_plan.gd` can force it (the day 5 `"horde"`).
 4. Save, run the game. If the file is broken, the game logs a warning and simply has no events (it won't crash).
    Paste the file into https://jsonlint.com to find the typo.
 
@@ -24,6 +27,8 @@ Night events live in `data/events.json`. You don't need to touch any code.
 | Key | Example | Meaning |
 |---|---|---|
 | `wood`, `concrete`, `scrap`, `circuits`, `water`, `food` | `"food": -2` | add or remove (never goes below 0) |
+| `dirty_water`, `raw_meat`, `mushroom`, `bandage`, `radio_part` | `"dirty_water": 3` | same, for the survival supplies (`food` = meals) |
+| `water_meter`, `food_meter` | `"water_meter": 40` | fill (or empty) the thirst / hunger meter, 0..100 |
 | `health` | `"health": 3` | heal or hurt (stays between 1 and 10) |
 | `skip_expedition` | `true` | storm: the player can't go outside tomorrow |
 | `rad_mult` | `2.0` | radiation builds this many times faster tomorrow |
@@ -43,4 +48,5 @@ Example:
 	]
 }
 ```
-How often events happen depends on difficulty (Easy 20%, Normal 35%, Hard 55% each night). Every event has the same chance to be picked.
+How often events happen depends on difficulty (Easy 20%, Normal 35%, Hard 55% each night). Every event has the same chance to be picked
+(except `forced_only` ones, and ones whose `requires` you don't have).

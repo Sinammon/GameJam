@@ -5,8 +5,24 @@
 			"title": "Raiders knock",
 			"description": "Fists bang on the hatch. \"Open up! We just want food!\"",
 			"options": [
-				{"label": "Open the door", "text": "They take 2 food, but leave a medkit behind (+3 health).", "effects": {"food": -2, "health": 3}},
-				{"label": "Ignore them", "text": "They pry the hatch, grab 3 scrap and smash things.", "effects": {"scrap": -3, "damage_room": true}, "unless": "door", "unless_text": "Your Reinforced Door holds. They give up and leave."}
+				{
+					"label": "Open the door",
+					"text": "They take 2 food, but leave a medkit behind (+3 health).",
+					"effects": {
+						"food": -2,
+						"health": 3
+					}
+				},
+				{
+					"label": "Ignore them",
+					"text": "They pry the hatch, grab 3 scrap and smash things.",
+					"effects": {
+						"scrap": -3,
+						"damage_room": true
+					},
+					"unless": "door",
+					"unless_text": "Your Reinforced Door holds. They give up and leave."
+				}
 			]
 		},
 		{
@@ -14,8 +30,20 @@
 			"title": "Radiation storm",
 			"description": "The geiger counter screams. A storm is rolling in for tomorrow.",
 			"options": [
-				{"label": "Hide", "text": "You will stay inside tomorrow.", "effects": {"skip_expedition": true}},
-				{"label": "Go out anyway", "text": "Radiation will build twice as fast tomorrow.", "effects": {"rad_mult": 2.0}}
+				{
+					"label": "Hide",
+					"text": "You will stay inside tomorrow.",
+					"effects": {
+						"skip_expedition": true
+					}
+				},
+				{
+					"label": "Go out anyway",
+					"text": "Radiation will build twice as fast tomorrow.",
+					"effects": {
+						"rad_mult": 2.0
+					}
+				}
 			]
 		},
 		{
@@ -23,8 +51,21 @@
 			"title": "Pipe burst",
 			"description": "Water sprays from a cracked pipe in the wall.",
 			"options": [
-				{"label": "Repair it (3 scrap)", "text": "You patch the pipe with scrap.", "cost": {"scrap": 3}, "effects": {}},
-				{"label": "Ignore it", "text": "You lose 2 water.", "effects": {"water": -2}}
+				{
+					"label": "Repair it (3 scrap)",
+					"text": "You patch the pipe with scrap.",
+					"cost": {
+						"scrap": 3
+					},
+					"effects": {}
+				},
+				{
+					"label": "Ignore it",
+					"text": "You lose 2 water.",
+					"effects": {
+						"water": -2
+					}
+				}
 			]
 		},
 		{
@@ -32,8 +73,18 @@
 			"title": "Stranger's radio message",
 			"description": "A weak voice: \"I left supplies out there for anyone still alive...\"",
 			"options": [
-				{"label": "Follow it", "text": "Tomorrow the crates out there hold extra supplies (+50% loot).", "effects": {"bonus_crate": true}},
-				{"label": "Ignore it", "text": "Could be a trap. You turn the radio off.", "effects": {}}
+				{
+					"label": "Follow it",
+					"text": "Tomorrow the crates out there hold extra supplies (+50% loot).",
+					"effects": {
+						"bonus_crate": true
+					}
+				},
+				{
+					"label": "Ignore it",
+					"text": "Could be a trap. You turn the radio off.",
+					"effects": {}
+				}
 			]
 		},
 		{
@@ -41,8 +92,20 @@
 			"title": "Rats in the pantry",
 			"description": "Scratching in the dark. Something is eating your food.",
 			"options": [
-				{"label": "Fight them", "text": "You chase them off, but get bitten (-1 health).", "effects": {"health": -1}},
-				{"label": "Let them eat", "text": "They eat 2 food.", "effects": {"food": -2}}
+				{
+					"label": "Fight them",
+					"text": "You chase them off, but get bitten (-1 health).",
+					"effects": {
+						"health": -1
+					}
+				},
+				{
+					"label": "Let them eat",
+					"text": "They eat 2 food.",
+					"effects": {
+						"food": -2
+					}
+				}
 			]
 		},
 		{
@@ -50,8 +113,157 @@
 			"title": "Quiet night",
 			"description": "For once, nothing happens. You sleep deeply.",
 			"options": [
-				{"label": "Rest", "text": "You feel better (+2 health).", "effects": {"health": 2}},
-				{"label": "Rest some more", "text": "You feel better (+2 health).", "effects": {"health": 2}}
+				{
+					"label": "Rest",
+					"text": "You feel better (+2 health).",
+					"effects": {
+						"health": 2
+					}
+				},
+				{
+					"label": "Rest some more",
+					"text": "You feel better (+2 health).",
+					"effects": {
+						"health": 2
+					}
+				}
+			]
+		},
+		{
+			"id": "poisoned_can",
+			"title": "A dented can",
+			"description": "You find an old dented can behind the shelf. The lid bulges a little.",
+			"options": [
+				{
+					"label": "Eat it",
+					"text": "It was bad. Your stomach cramps all night (-2 health, hunger eased).",
+					"effects": {
+						"health": -2,
+						"food_meter": 25
+					}
+				},
+				{
+					"label": "Throw it away",
+					"text": "Better safe than sorry.",
+					"effects": {}
+				}
+			]
+		},
+		{
+			"id": "rain",
+			"title": "Rain shower",
+			"description": "Rain drums on the hatch. Water trickles down the shaft.",
+			"options": [
+				{
+					"label": "Set out buckets",
+					"text": "You collect 3 dirty water. Filter or boil it before drinking.",
+					"effects": {
+						"dirty_water": 3
+					}
+				},
+				{
+					"label": "Drink from the shaft",
+					"text": "Cold and gritty, but your thirst is gone. Probably fine.",
+					"effects": {
+						"water_meter": 40,
+						"health": -1
+					}
+				}
+			]
+		},
+		{
+			"id": "trader_rat",
+			"title": "The trader rat",
+			"description": "A scruffy old man with a pet rat knocks. \"Scrap for food, friend?\"",
+			"options": [
+				{
+					"label": "Trade (3 scrap)",
+					"text": "He hands over 2 canned meals and a bandage.",
+					"cost": {
+						"scrap": 3
+					},
+					"effects": {
+						"food": 2,
+						"bandage": 1
+					}
+				},
+				{
+					"label": "Send him away",
+					"text": "He shrugs and wanders off into the dark.",
+					"effects": {}
+				}
+			]
+		},
+		{
+			"id": "spoiled",
+			"title": "Something smells",
+			"description": "The raw meat in the locker is turning green.",
+			"requires": {
+				"raw_meat": 1
+			},
+			"options": [
+				{
+					"label": "Eat it now",
+					"text": "Not great, not terrible (+hunger, -1 health).",
+					"effects": {
+						"raw_meat": -1,
+						"food_meter": 30,
+						"health": -1
+					}
+				},
+				{
+					"label": "Throw it out",
+					"text": "You toss the meat out of the hatch.",
+					"effects": {
+						"raw_meat": -2
+					}
+				}
+			]
+		},
+		{
+			"id": "mushroom_patch",
+			"title": "Mushrooms in the corner",
+			"description": "Pale mushrooms sprouted in the damp corner of the bedroom.",
+			"options": [
+				{
+					"label": "Pick them",
+					"text": "You pick 2 mushrooms for the Stove.",
+					"effects": {
+						"mushroom": 2
+					}
+				},
+				{
+					"label": "Leave them",
+					"text": "They might be poisonous anyway.",
+					"effects": {}
+				}
+			]
+		},
+		{
+			"id": "horde",
+			"title": "The horde at the hatch",
+			"description": "Dozens of the dead claw at the hatch. It won't hold long.",
+			"forced_only": true,
+			"options": [
+				{
+					"label": "Hold the hatch",
+					"text": "They break in, grab 2 meals and hurt you before you drive them out (-2 health).",
+					"effects": {
+						"food": -2,
+						"health": -2,
+						"damage_room": true
+					},
+					"unless": "door",
+					"unless_text": "Your Reinforced Door holds. By dawn the horde drifts away."
+				},
+				{
+					"label": "Throw out 3 meals",
+					"text": "They fight over the food and leave the hatch alone.",
+					"cost": {
+						"food": 3
+					},
+					"effects": {}
+				}
 			]
 		}
 	]

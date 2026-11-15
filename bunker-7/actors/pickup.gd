@@ -4,7 +4,7 @@ extends Node2D
 # into the backpack when the player walks over it. A full backpack leaves it lying
 # there (with a "Backpack full!" message, at most once every few seconds).
 # Picture: `picture` if given and present (e.g. obj_logs.png for tree logs), else
-# art/world_clean/pickup_<kind>.png, else a small coloured box.
+# art/world_clean/pickup_<kind>.png, else icon_<kind>.png (raw meat ...), else a small coloured box.
 
 const PICK_DIST := 16.0         # px between the player's feet and the item
 const MAGNET_DIST := 36.0       # closer than this (and room in the pack): drifts to the player
@@ -14,6 +14,8 @@ const FULL_MSG_EVERY := 3.0
 const COLORS := {
 	"wood": Color(0.6, 0.4, 0.2), "concrete": Color(0.7, 0.7, 0.67), "scrap": Color(0.55, 0.5, 0.45),
 	"circuits": Color(0.3, 0.75, 0.4), "water": Color(0.35, 0.6, 0.95), "food": Color(0.85, 0.55, 0.3),
+	"raw_meat": Color(0.85, 0.3, 0.3), "mushroom": Color(0.9, 0.85, 0.7), "dirty_water": Color(0.4, 0.5, 0.35),
+	"canned_food": Color(0.75, 0.75, 0.8), "bandage": Color(0.95, 0.95, 0.9), "radio_part": Color(0.95, 0.6, 0.2),
 }
 
 var kind := "wood"
@@ -30,7 +32,8 @@ func setup(item_kind: String, p: Node, floor_fn: Callable, pop := Vector2.ZERO, 
 	floor_at = floor_fn
 	vel = pop
 	add_to_group("pickups")
-	if (picture == "" or Art.sprite(self, picture) == null) and Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null:
+	if (picture == "" or Art.sprite(self, picture) == null) and Art.sprite(self, "res://art/world_clean/pickup_%s.png" % kind) == null \
+			and Art.sprite(self, "res://art/world_clean/icon_%s.png" % kind) == null:   # V3 items: their icon
 		var box := ColorRect.new()
 		box.color = COLORS.get(kind, Color.WHITE)
 		box.position = Vector2(-3, -6)
@@ -51,7 +54,8 @@ func _physics_process(delta: float) -> void:
 			position.x = move_toward(position.x, player.global_position.x, MAGNET_SPEED * delta)
 		return
 	if player.add_item(kind, 1) == 1:
-		player.say("+1 %s" % kind)
+		Sfx.play("pickup", 0.0, 0.08)
+		player.say("+1 %s" % kind.replace("_", " "))
 		queue_free()
 	elif _msg_left <= 0.0:
 		_msg_left = FULL_MSG_EVERY
@@ -63,6 +67,8 @@ func _fall(delta: float) -> void:
 	if floor_at.is_valid():
 		ground = floor_at.call(position.x)
 	if position.y >= ground and vel.y >= 0.0:
+		if not grounded and vel.y > 60.0:
+			Sfx.play("drop", -2.0, 0.12)
 		position.y = ground
 		vel = Vector2.ZERO
 		grounded = true

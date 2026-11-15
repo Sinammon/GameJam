@@ -160,6 +160,72 @@ WORLD = {
     # Tutorial slide 3: a filled 16:9 picture (no magenta), cropped to exact 16:9 then 480x270.
     "tut3_rad.png":    dict(kind="full", out="tut_3_radiation", size=(480, 270), crop=True),
 }
+# V4 batch (new places: Old Mine, Bomb Crater, survival items, stations). Raw files from the
+# designer's gameNewPlaces folder; run with --chars and --world both pointing at that folder.
+# "parts" sheets: each object is cut from its own region, given in per-mille of the image width
+# (x0, y0, x1, y1; y uses the same unit), so drips / steam / drops stay with their owner and a
+# neighbour never leaks in. Spec per part:
+#   ("tile",)        16x16 ground tile, cut inside its dark outline so it repeats seamlessly
+#   ("ceil",)        a ceiling strip (rock with drips): inside the outline, stretched to fill 16x16
+#   ("w", n)/("h", n) width / height in px (aspect kept), ("box", w, h) fit inside, ("f", k) raw px * k
+# and optional extras: kill_purple=True drops painted light rays (purple over magenta).
+# "atlas" builds a 4x2 sheet in the tiles_outside.png layout (scenes/expedition.gd art_tile:
+# (0,0) under ground, (1,0) (3,0) (1,1) (2,1) (3,1) the surface row; (2,0) rock and (0,1)
+# the ceiling's lowest row in tunnel locations) from the tiles: (tile name, op) with op None,
+# "flip" (mirrored, for variety) or ("mul", (r, g, b)).
+CHARS.update({
+    # 4 wing beats; purple bats on magenta: strict background key, no inner recolouring.
+    "Bats.png": dict(kind="sheet", out="bat_fly", n=4, anim=True, h=14, key_m=130, edge_m=70, inner_m=255),
+    # 4 run frames, same height rule as the old rat (13 px for the tallest frame).
+    "Rats.png": dict(kind="sheet", out="rat_run", n=4, anim=True, h=13),
+})
+MINE_UNDER = (0.78, 0.74, 0.74)   # the ground under the surface row a little darker, so the floor reads
+CRATER_UNDER = (0.8, 0.8, 0.8)
+WORLD.update({
+    "Mine.png":               dict(kind="full", out="bg_mine", size=(480, 270)),
+    "BombCraterBackDrop.png": dict(kind="full", out="bg_crater", size=(480, 270)),
+    "MineObjects.png": dict(kind="parts", parts=[
+        ("tile_mine_floor",   (110, 30, 260, 178), ("tile",)),
+        ("tile_mine_wall",    (420, 30, 582, 180), ("tile",)),
+        ("tile_mine_ceiling", (712, 28, 905, 152), ("ceil",)),
+        ("obj_mine_support",  (45, 205, 335, 440), ("w", 56)),
+        ("obj_mine_cart",     (385, 240, 625, 442), ("w", 34)),
+        ("obj_mine_lamp",     (755, 222, 855, 418), ("h", 26)),
+        ("obj_mine_exit",     (95, 468, 292, 728), ("w", 28), dict(kill_purple=True)),
+        ("obj_mushroom",      (420, 545, 560, 672), ("h", 14)),
+        ("obj_water_drip",    (730, 485, 885, 619), ("w", 20)),
+        ("obj_water_pool",    (690, 619, 910, 708), ("w", 30)),
+    ], atlas=("tiles_mine", [
+        ("tile_mine_floor", MINE_UNDER), ("tile_mine_floor", None), ("tile_mine_wall", None), ("tile_mine_floor", "flip"),
+        ("tile_mine_ceiling", None), ("tile_mine_floor", "flip"), ("tile_mine_floor", None), ("tile_mine_floor", (0.9, 1.0, 0.85)),
+    ])),
+    "BombCrateItems.png": dict(kind="parts", parts=[
+        ("tile_crater_ground", (62, 40, 210, 190), ("tile",)),
+        ("tile_crater_under",  (285, 40, 435, 190), ("tile",)),
+        ("obj_bomb_shell",     (470, 8, 950, 210), ("w", 72)),
+        ("obj_car_wreck",      (35, 236, 405, 378), ("w", 60)),
+        ("obj_crater_crystal", (445, 230, 635, 376), ("w", 24)),
+        ("obj_supply_crate",   (700, 260, 945, 378), ("w", 26)),
+        ("obj_girder",         (85, 405, 255, 640), ("h", 34)),
+        ("obj_crater_exit",    (385, 405, 585, 640), ("w", 30)),
+        ("obj_ash_pile",       (675, 495, 930, 636), ("w", 28)),
+    ], atlas=("tiles_crater", [
+        ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", None), ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", "flip"),
+        ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", "flip"), ("tile_crater_ground", None), ("tile_crater_ground", None),
+    ])),
+    # 9 icons, each fitted into 16x16 (steam and drops stay with their item).
+    "SurivialItems.png": dict(kind="parts", parts=[
+        (n, (x0, 70, x1, 232), ("box", 16, 16)) for n, x0, x1 in [
+            ("icon_dirty_water", 25, 117), ("icon_clean_water", 117, 210), ("icon_raw_meat", 210, 329),
+            ("icon_cooked_meat", 329, 445), ("icon_mushroom", 445, 547), ("icon_canned_food", 547, 648),
+            ("icon_bandage", 648, 763), ("icon_tin_can", 763, 872), ("icon_bucket", 872, 980)]]),
+    # Bunker stations, one px scale for all (the filter ~32 px tall like bld_purifier).
+    "Water.png": dict(kind="parts", parts=[
+        (n, (x0, 50, x1, 285), ("f", 1 / 13.5)) for n, x0, x1 in [
+            ("obj_water_filter", 25, 235), ("obj_water_filter_on", 240, 450), ("obj_stove", 455, 620),
+            ("obj_stove_lit", 625, 800), ("obj_shelf", 805, 980)]]),
+})
+
 # tiles_ore.png = 4x2 cells of 16 px in the order scenes/mining.gd ORE_ATLAS expects:
 #   scrap_ore, concrete, circuits, bedrock / planks, pipe, bones, toxic
 # each = (source set, tile name, recolour). Recolours: None, ("dark", rgb mul) for the
@@ -183,9 +249,15 @@ def magness(rgb):
     return np.minimum(r, b) - g
 
 
+# Keying thresholds; a sheet's cfg may override them (e.g. purple bats on magenta need a
+# stricter background test and no inner recolouring): key_m, edge_m, inner_m.
+TH_DEFAULT = dict(key_m=70, edge_m=25, inner_m=40)
+TH = dict(TH_DEFAULT)
+
+
 def is_magenta_bg(rgb):
     m = magness(rgb)
-    return (m > 70) & (rgb[..., 0] > 110) & (rgb[..., 2] > 110)
+    return (m > TH["key_m"]) & (rgb[..., 0] > 110) & (rgb[..., 2] > 110)
 
 
 def detect_background(rgb):
@@ -238,12 +310,12 @@ def defringe(rgb, a):
         m = magness(rgb)
         pad = np.pad(a, 1, constant_values=False)
         edge = a & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
-        a[edge & (m > 25)] = False
+        a[edge & (m > TH["edge_m"])] = False
     m = magness(rgb)
-    bad = a & (m > 40)
+    bad = a & (m > TH["inner_m"])
     for y, x in zip(*np.nonzero(bad)):
         ys, xs = slice(max(0, y - 1), y + 2), slice(max(0, x - 1), x + 2)
-        nb = rgb[ys, xs][a[ys, xs] & (magness(rgb[ys, xs]) <= 40)]
+        nb = rgb[ys, xs][a[ys, xs] & (magness(rgb[ys, xs]) <= TH["inner_m"])]
         if len(nb):
             rgb[y, x] = np.median(nb, axis=0)
         else:
@@ -494,6 +566,8 @@ PREVIEW_DIR = [""]   # --preview: where to write debug sheets (outside the Godot
 
 def process(path, cfg, folder, index):
     CURRENT_SOURCE[0] = os.path.basename(path)
+    TH.clear()
+    TH.update({k: cfg.get(k, v) for k, v in TH_DEFAULT.items()})
     rgb = np.array(Image.open(path).convert("RGB"))
     bg, colour = detect_background(rgb)
     kind = cfg["kind"]
@@ -548,6 +622,10 @@ def process(path, cfg, folder, index):
         return
 
     mask = alpha_mask(rgb, bg)
+    if kind == "parts":
+        process_parts(rgb, mask, cfg, folder, index)
+        return
+
     if kind == "ore_tiles":
         # tiles with a dark outline on magenta: crop to the tile body (inside the outline), 16x16
         for name, box in zip(cfg["names"], components(mask, cfg["n"], dilate=1)):
@@ -640,6 +718,58 @@ def process(path, cfg, folder, index):
         save(to_image(c, a), folder, name, index)
 
 
+PART_TILES = {}   # tile name -> RGBA image, for the "atlas" of a parts sheet
+
+
+def process_parts(rgb, mask, cfg, folder, index):
+    H, W = mask.shape
+    u = W / 1000.0
+    for part in cfg["parts"]:
+        name, (rx0, ry0, rx1, ry1), spec = part[:3]
+        extra = part[3] if len(part) > 3 else {}
+        X0, Y0 = max(0, int(rx0 * u)), max(0, int(ry0 * u))
+        X1, Y1 = min(W, int(rx1 * u)), min(H, int(ry1 * u))
+        m = np.zeros_like(mask)
+        m[Y0:Y1, X0:X1] = mask[Y0:Y1, X0:X1]
+        if extra.get("kill_purple"):   # painted light rays: purple / pink over the magenta
+            c = rgb.astype(int)
+            m &= ~((c[..., 2] - c[..., 1] > 25) & (c[..., 0] - c[..., 1] > 50))
+        box = bbox(m)
+        x0, y0, x1, y1 = box
+        if spec[0] in ("tile", "ceil"):
+            ix, iy = (x1 - x0) // 14, (y1 - y0) // 14
+            sub, sm = rgb[y0 + iy:y1 - iy, x0 + ix:x1 - ix], m[y0 + iy:y1 - iy, x0 + ix:x1 - ix]
+            if spec[0] == "tile":
+                c, a = resample(sub, np.ones(sm.shape, bool), 16, 16)
+            else:   # rock band on top, the drips hang into the tunnel below
+                c, a = resample(sub, sm, 16, 16)
+                c, a = defringe(c, a)
+            img = to_image(c, a)
+            PART_TILES[name] = img
+            save(img, folder, name, index)
+            continue
+        bw, bh = x1 - x0, y1 - y0
+        scale = {"w": lambda: spec[1] / bw, "h": lambda: spec[1] / bh, "f": lambda: spec[1],
+                 "box": lambda: fit_scale(box, spec[1], spec[2])}[spec[0]]()
+        c, a = scaled_piece(rgb, m, box, scale)
+        a = despeckle(a, 2)
+        c, a = trim(c, a)
+        save(to_image(c, a), folder, name, index)
+    if "atlas" in cfg:
+        out, cells = cfg["atlas"]
+        atlas = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+        for i, (tile, op) in enumerate(cells):
+            img = PART_TILES[tile]
+            if op == "flip":
+                img = img.transpose(Image.FLIP_LEFT_RIGHT)
+            elif op is not None:
+                arr = np.array(img).astype(float)
+                arr[..., :3] *= np.array(op)
+                img = Image.fromarray(np.clip(np.round(arr), 0, 255).astype(np.uint8), "RGBA")
+            atlas.paste(img, ((i % 4) * 16, (i // 4) * 16))
+        save(atlas, folder, out, index)
+
+
 def check_outputs(folders):
     bad = 0
     for folder in folders:
@@ -648,7 +778,8 @@ def check_outputs(folders):
                 continue
             arr = np.array(Image.open(os.path.join(folder, f)).convert("RGBA"))
             vis = arr[..., 3] > 0
-            mag = (magness(arr[..., :3]) > 60) & vis
+            # bright magenta only (the bats' own dark purple, ~145,65,148, is fine)
+            mag = (magness(arr[..., :3]) > 60) & (np.maximum(arr[..., 0], arr[..., 2]) > 170) & vis
             if mag.sum():
                 bad += 1
                 print("   magenta left in %s: %d px" % (f, mag.sum()))

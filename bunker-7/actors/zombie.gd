@@ -50,6 +50,16 @@ var _wander_left := 0.0
 var sprite: AnimatedSprite2D = null
 var body: Node2D = null          # placeholder visual
 var eyes: AnimatedSprite2D = null   # glow overlay on the sprite (see _add_glow)
+# V3 variants by location: "normal" (surface), "cave" (Old Mine: dark, a bit slower),
+# "crater" (Bomb Crater: glowing green, tougher, faster, hits harder). Set before _ready.
+const VARIANTS := {
+	"normal": {"hp": 1.0, "speed": 1.0, "damage": 1, "tint": Color(1, 1, 1)},
+	"cave":   {"hp": 1.0, "speed": 0.9, "damage": 1, "tint": Color(0.62, 0.58, 0.66)},
+	"crater": {"hp": 1.75, "speed": 1.15, "damage": 2, "tint": Color(0.7, 1.25, 0.6)},
+}
+var variant := "normal"
+var speed_mult := 1.0
+var damage := DAMAGE
 
 func setup(p: Node, hatch_x: float, radius: float, floor_fn: Callable, mult := 1.0) -> void:
 	player = p
@@ -61,6 +71,11 @@ func setup(p: Node, hatch_x: float, radius: float, floor_fn: Callable, mult := 1
 func _ready() -> void:
 	add_to_group("zombies")
 	_wander_dir = -1.0 if randf() < 0.5 else 1.0
+	var v: Dictionary = VARIANTS.get(variant, VARIANTS["normal"])
+	hp = MAX_HP * float(v.hp)
+	speed_mult = float(v.speed)
+	damage = int(v.damage)
+	modulate = v.tint
 	_build_visual()
 
 func _build_visual() -> void:
@@ -211,9 +226,10 @@ func _idle(delta: float) -> void:
 	if _wander_left <= 0.0:
 		_wander_left = randf_range(1.5, 3.5)
 		_wander_dir = [-1.0, 0.0, 1.0][randi() % 3]
-	velocity.x = _wander_dir * WANDER_SPEED
+	velocity.x = _wander_dir * WANDER_SPEED * speed_mult
 	if _sees_player():
 		state = State.CHASE
+		Sfx.random(["zombie_growl_1", "zombie_growl_2"], 0.0, 0.12)
 
 func _chase() -> void:
 	if not _player_ok():
@@ -229,9 +245,11 @@ func _chase() -> void:
 		if _cooldown <= 0.0:
 			state = State.ATTACK
 			_timer = WINDUP
+			if randf() < 0.5:
+				Sfx.random(["zombie_growl_1", "zombie_growl_2"], -3.0, 0.15)
 			_play("attack")
 		return
-	velocity.x = facing * CHASE_SPEED
+	velocity.x = facing * CHASE_SPEED * speed_mult
 
 # Stands still for WINDUP (the telegraph), then hits if the player is still close.
 func _attack() -> void:
@@ -241,7 +259,7 @@ func _attack() -> void:
 	if _player_ok():
 		var d := _dist_to_player()
 		if absf(d.x) < HIT_RANGE and absf(d.y) < 24.0:
-			player.take_damage(DAMAGE, "zombie", global_position)
+			player.take_damage(damage, "zombie", global_position)
 	_cooldown = COOLDOWN
 	state = State.CHASE
 
@@ -258,6 +276,7 @@ func take_hit(amount: float, from_x: float) -> bool:
 	if state == State.DEAD:
 		return false
 	hp -= amount
+	Sfx.play("zombie_hit", 0.0, 0.1)
 	Chips.burst(get_parent(), global_position + Vector2(0, -14), "toxic", 5)
 	_flash()
 	var dir := signf(global_position.x - from_x)
@@ -281,12 +300,13 @@ func _flash() -> void:
 func _die() -> void:
 	state = State.DEAD
 	collision_layer = 0
+	Sfx.play("zombie_death", 0.0, 0.08)
 	_play("death")
 	if randf() < DROP_CHANCE:
 		var p: Node2D = PickupScript.new()
 		p.position = global_position + Vector2(0, -8)
 		get_parent().add_child(p)
-		p.setup("food" if randf() < 0.5 else "scrap", player, floor_at, Vector2(randf_range(-20, 20), -100))
+		p.setup("raw_meat" if randf() < 0.4 else "scrap", player, floor_at, Vector2(randf_range(-20, 20), -100))
 	var tw := create_tween()
 	if sprite == null:
 		tw.tween_property(body, "rotation", -facing * PI / 2.0, 0.3)

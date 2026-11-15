@@ -394,7 +394,7 @@ func test_zombie_fight() -> void:
 		drops[pk.kind] = drops.get(pk.kind, 0) + 1
 	var total := 0
 	for k in drops: total += drops[k]
-	check(drops.keys().all(func(k: String) -> bool: return k in ["food", "scrap"]) and total > 2 and total < 25,
+	check(drops.keys().all(func(k: String) -> bool: return k in ["raw_meat", "scrap"]) and total > 2 and total < 25,
 		"zombie drops: %d of %d (%s)" % [total, dead, str(drops)])
 
 func test_zombie_kills_player() -> void:

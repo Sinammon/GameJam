@@ -31,19 +31,27 @@ var enabled := true
 var _check_left := 0.0
 var _seen := false
 var _scene: PackedScene
+var variant := "normal"           # V3: zombie look/strength for the location (actors/zombie.gd VARIANTS)
 
 func setup(expedition: Node2D) -> void:
 	ex = expedition
 	_scene = load(ZOMBIE_SCENE)
-	var day_factor := minf(1.0 + DAY_GROWTH * (GSBridge.day() - 1), MAX_DAY_FACTOR)
+	var day_factor := minf(1.0 + DAY_GROWTH * (GSBridge.day() - 1), MAX_DAY_FACTOR) * GSBridge.zombie_multiplier()
+	# V3: per-location numbers and look (scenes/locations.gd "zombies"); the surface keeps PER_AREA
+	var zcfg: Dictionary = ex.loc.get("zombies", {}) if "loc" in ex else {}
+	var per_area: Array = zcfg.get("per_area", PER_AREA)
+	variant = str(zcfg.get("variant", "normal"))
+	var area_px: float = float(ex.AREA_COLS) * 16.0
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	for side in [-1.0, 1.0]:
 		for area in 3:
-			var n := roundi(PER_AREA[area] * day_factor)
-			# area columns: 50 per area, measured from the hatch
-			var from: float = maxf(area * 50 * 16.0, SPAWN_MIN_DIST)
-			var to: float = (area + 1) * 50 * 16.0 - 16.0
+			var n := roundi(float(per_area[area]) * day_factor)
+			# area columns: AREA_COLS per area (50 on the surface), measured from the hatch
+			var from: float = maxf(area * area_px, SPAWN_MIN_DIST)
+			var to: float = (area + 1) * area_px - 16.0
+			if from >= to:
+				continue
 			for i in n:
 				var x: float = ex.HATCH_X + side * rng.randf_range(from, to)
 				slots.append({"x": clampf(x, 24.0, ex.WORLD_W - 24.0), "zombie": null, "wait": 0.0})
@@ -91,6 +99,7 @@ func spawn_at(x: float, slot: Variant = null) -> Node:
 	var z: CharacterBody2D = _scene.instantiate()
 	z.position = Vector2(x, ex.floor_y(x) - 1.0)
 	z.setup(ex.player, ex.HATCH_X, SAFE_RADIUS, ex.floor_y, GSBridge.loot_multiplier())
+	z.variant = variant
 	ex.add_child(z)
 	if slot is Dictionary:
 		slot["zombie"] = z
