@@ -42,8 +42,8 @@ func _ready() -> void:
 	_refresh()
 
 # Swap an icon row in place (rows are rebuilt on every refresh).
-func _set_row(old: HBoxContainer, items: Array, size: int) -> HBoxContainer:
-	var row := UIKit.icon_row(items, size, 12)
+func _set_row(old: HBoxContainer, items: Array, font_size: int) -> HBoxContainer:
+	var row := UIKit.icon_row(items, font_size, 12)
 	_box.add_child(row)
 	_box.move_child(row, old.get_index())
 	old.queue_free()
