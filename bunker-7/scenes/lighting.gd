@@ -29,6 +29,7 @@ const LightSourceScript := preload("res://scenes/light_source.gd")
 const QUALITIES := ["full", "simple", "off"]
 const CAP := {"full": 6, "simple": 3, "off": 0}   # world LightSources on at once (player lights extra)
 const MIN_BRIGHTNESS := 0.35       # ambient never darker than this (luminance)
+var min_brightness := MIN_BRIGHTNESS   # per location (V3: the Old Mine is darker), set by the expedition
 const AMBIENT_SMOOTH := 2.0        # 1/s, how fast the ambient follows its target
 const HEADLAMP_RADIUS := 110.0
 const HEADLAMP_COLOR := Color(1.0, 0.93, 0.8)
@@ -372,8 +373,8 @@ func ground_polygon(ch: int) -> PackedVector2Array:
 
 func _clamped(c: Color) -> Color:
 	var lum := c.get_luminance()
-	if lum < MIN_BRIGHTNESS:
-		var k := MIN_BRIGHTNESS / maxf(lum, 0.01)
+	if lum < min_brightness:
+		var k := min_brightness / maxf(lum, 0.01)
 		c = Color(minf(c.r * k, 1.0), minf(c.g * k, 1.0), minf(c.b * k, 1.0))
 	return c
 
@@ -396,7 +397,7 @@ func _process(delta: float) -> void:
 	if canvas_mod:
 		canvas_mod.color = amb
 	if headlamp and is_instance_valid(headlamp):
-		headlamp.energy = lerpf(HEADLAMP_ENERGY.y, HEADLAMP_ENERGY.x, clampf((amb.get_luminance() - MIN_BRIGHTNESS) / (1.0 - MIN_BRIGHTNESS), 0.0, 1.0))
+		headlamp.energy = lerpf(HEADLAMP_ENERGY.y, HEADLAMP_ENERGY.x, clampf((amb.get_luminance() - min_brightness) / (1.0 - min_brightness), 0.0, 1.0))
 		var on := flashlight_on.is_valid() and bool(flashlight_on.call())
 		cone.enabled = on
 		if on:

@@ -14,6 +14,8 @@ const FULL_MSG_EVERY := 3.0
 const COLORS := {
 	"wood": Color(0.6, 0.4, 0.2), "concrete": Color(0.7, 0.7, 0.67), "scrap": Color(0.55, 0.5, 0.45),
 	"circuits": Color(0.3, 0.75, 0.4), "water": Color(0.35, 0.6, 0.95), "food": Color(0.85, 0.55, 0.3),
+	"raw_meat": Color(0.85, 0.3, 0.3), "mushroom": Color(0.9, 0.85, 0.7), "dirty_water": Color(0.4, 0.5, 0.35),
+	"canned_food": Color(0.75, 0.75, 0.8), "bandage": Color(0.95, 0.95, 0.9), "radio_part": Color(0.95, 0.6, 0.2),
 }
 
 var kind := "wood"
@@ -51,7 +53,7 @@ func _physics_process(delta: float) -> void:
 			position.x = move_toward(position.x, player.global_position.x, MAGNET_SPEED * delta)
 		return
 	if player.add_item(kind, 1) == 1:
-		player.say("+1 %s" % kind)
+		player.say("+1 %s" % kind.replace("_", " "))
 		queue_free()
 	elif _msg_left <= 0.0:
 		_msg_left = FULL_MSG_EVERY

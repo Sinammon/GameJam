@@ -3,7 +3,8 @@ extends Area2D
 
 const KINDS := ["wood", "concrete", "scrap"]
 # When the backpack can't fit everything, the rarest items go in first.
-const TAKE_ORDER := ["circuits", "scrap", "water", "food", "concrete", "wood"]
+const TAKE_ORDER := ["radio_part", "circuits", "bandage", "canned_food", "scrap", "water", "food",
+	"raw_meat", "mushroom", "dirty_water", "concrete", "wood"]
 
 var contents := {}   # kind -> amount left inside
 
@@ -24,21 +25,37 @@ func show_open() -> void:
 	else:
 		$Sprite.color = Color(0.3, 0.25, 0.2)
 
-# far: 0.0 (next to the hatch) .. 1.0 (far right edge). loot_mult comes from GameState.
-func setup(far: float, loot_mult: float) -> void:
-	var count := maxi(1, roundi(randi_range(2, 4) * loot_mult))
+# far: 0.0 (next to the hatch) .. 1.0 (far edge). loot_mult comes from GameState.
+# cfg: the location's "loot" table (scenes/locations.gd); {} = the surface defaults.
+# V3: crates no longer hand out water and meals freely: clean water bottles and canned food are
+# rare finds; dirty water comes from puddles/barrels and food from rats, mushrooms and the Stove.
+func setup(far: float, loot_mult: float, cfg: Dictionary = {}) -> void:
+	var weights: Dictionary = cfg.get("weights", {"wood": 1.0, "concrete": 1.0, "scrap": 1.0})
+	var span: Array = cfg.get("count", [2, 4])
+	var count := maxi(1, roundi(randi_range(int(span[0]), int(span[1])) * loot_mult))
+	var total := 0.0
+	for k in weights:
+		total += float(weights[k])
 	for i in count:
+		var roll := randf() * total
 		var kind: String = KINDS[randi() % KINDS.size()]
+		for k in weights:
+			roll -= float(weights[k])
+			if roll <= 0.0:
+				kind = k
+				break
 		contents[kind] = contents.get(kind, 0) + 1
-	# Rare circuit, only in the far right of the map.
-	if far > 0.7 and randf() < 0.35:
+	# Rare circuit, only in the far crates.
+	if far > 0.7 and randf() < float(cfg.get("circuits", 0.35)):
 		contents["circuits"] = 1
-	# Supplies (needed to survive Hard): 0-1 each, 0-2 of food in the suburb
-	# (first third of the map) and of water at the market (middle third).
-	var water := randi_range(0, 2 if far >= 0.33 and far < 0.66 else 1)
-	var food := randi_range(0, 2 if far < 0.33 else 1)
-	_add(contents, "water", roundi(water * loot_mult))
-	_add(contents, "food", roundi(food * loot_mult))
+	for k in ["water", "canned_food", "bandage", "radio_part"]:
+		if randf() < float(cfg.get(k, {"water": 0.25, "canned_food": 0.2, "bandage": 0.1}.get(k, 0.0))):
+			_add(contents, k, 1)
+
+# Puts these in for sure (the radio part in the crater's farthest crate).
+func add_guaranteed(items: Dictionary) -> void:
+	for k in items:
+		_add(contents, k, int(items[k]))
 
 static func _add(d: Dictionary, kind: String, n: int) -> void:
 	if n > 0:
@@ -77,5 +94,5 @@ static func take_into(src: Dictionary, player: Node) -> Array:
 		if src[kind] <= 0:
 			src.erase(kind)
 		if added > 0:
-			got.append("+%d %s" % [added, kind])
+			got.append("+%d %s" % [added, kind.replace("_", " ")])
 	return got

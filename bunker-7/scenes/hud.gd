@@ -1,6 +1,7 @@
 extends CanvasLayer
 # Expedition HUD, icons only (tiny numbers, no words):
-#   top-left: hearts, water drop + count, food + count (what you carry)
+#   top-left: hearts; V3: thirst and hunger meters (water drop / food icon, bar, carried count)
+#   under the radiation bar: location name and today's goal (tiny)
 #   top-centre: geiger counter (ui_geiger.png, 5 frames = radiation level 0..4) + radiation bar
 #   top-right: backpack icon (icon_backpack_<tier>.png, tier from GSBridge) + used/limit
 #   bottom-left: 5-slot hotbar; Tab opens the backpack grid above it
@@ -23,10 +24,16 @@ const TOOL_ICONS := {
 const ITEM_COLORS := {
 	"wood": Color(0.6, 0.4, 0.2), "concrete": Color(0.65, 0.65, 0.62), "scrap": Color(0.55, 0.5, 0.45),
 	"circuits": Color(0.3, 0.75, 0.4), "water": Color(0.35, 0.6, 0.95), "food": Color(0.85, 0.55, 0.3),
+	"raw_meat": Color(0.85, 0.3, 0.3), "mushroom": Color(0.9, 0.85, 0.7), "dirty_water": Color(0.4, 0.5, 0.35),
+	"canned_food": Color(0.75, 0.75, 0.8), "bandage": Color(0.95, 0.95, 0.9), "radio_part": Color(0.95, 0.6, 0.2),
 }
+const METER_COLORS := {"water": Color(0.35, 0.6, 0.95), "food": Color(0.9, 0.6, 0.3)}
 const DEATH_TEXT := {
 	"radiation": "Radiation sickness took you.",
 	"zombie": "A zombie got you.",
+	"hunger": "You starved out there.",
+	"thirst": "Thirst took you.",
+	"sickness": "Sickness took you.",
 }
 const HOME_ARROW_DIST := 720.0     # 1.5 screens from the hatch
 const CELL := 20
@@ -48,6 +55,9 @@ var radiation: RefCounted = null
 var hatch_x := 0.0
 var backpack_tier := 1              # GSBridge.backpack_tier(), read once in setup
 var home_arrow_visible := false     # read by tests
+var survival: RefCounted = null     # V3: scenes/survival.gd (set by the expedition)
+var goal_text := ""                 # V3: today's goal line (GSBridge.goal_text)
+var location_name := ""
 
 var _tex := {}                      # path -> Texture2D or null (cached)
 var _font: Font
@@ -214,12 +224,33 @@ func _draw_icon(file: String, at: Vector2, fallback: Color, size := Vector2(10, 
 	draw_node.draw_rect(Rect2(at + Vector2(0, 2), size), fallback)
 	return size.x
 
+# V3: two meter rows (thirst, hunger): icon, bar 0..100, the count carried that fills it.
+# Low (< 25) bars blink; empty ones are red (health drains).
 func _draw_supplies(at: Vector2) -> void:
-	var x := at.x
+	var y := at.y
 	for k in ["water", "food"]:
-		var w := _draw_icon("icon_" + k, Vector2(x, at.y), ITEM_COLORS[k])
-		_num(Vector2(x + w + 2, at.y + 12), str(int(player.items.get(k, 0))))
-		x += w + 18
+		var icon := _t("icon_" + k)
+		if icon:
+			var s := minf(12.0 / maxf(icon.get_height(), 1.0), 1.0)
+			draw_node.draw_texture_rect(icon, Rect2(Vector2(at.x, y), (icon.get_size() * s).floor()), false)
+		else:
+			draw_node.draw_rect(Rect2(Vector2(at.x, y + 2), Vector2(10, 10)), ITEM_COLORS[k])
+		if survival != null:
+			var v: float = survival.get_meter(k)
+			var bar := Rect2(Vector2(at.x + 15, y + 4), Vector2(48, 5))
+			draw_node.draw_rect(bar.grow(1), Color(0.05, 0.05, 0.05, 0.85))
+			var col: Color = METER_COLORS[k]
+			if v <= 0.0:
+				col = Color(0.9, 0.2, 0.2, 0.6 + 0.4 * sin(_time * 8.0))
+			elif v < 25.0:
+				col.a = 0.55 + 0.45 * sin(_time * 6.0)
+			draw_node.draw_rect(Rect2(bar.position, Vector2(bar.size.x * v / 100.0, bar.size.y)), col)
+		var carried := 0
+		for item in (["water", "dirty_water"] if k == "water" else ["food", "canned_food", "mushroom", "raw_meat"]):
+			carried += int(player.items.get(item, 0))
+		_num(Vector2(at.x + 67, y + 11), str(carried))
+		y += 13
+	_num(Vector2(at.x, y + 9), "Q eat  R drink", Color(1, 1, 1, 0.45))
 
 func _draw_radiation(at: Vector2) -> void:
 	if radiation == null:
@@ -254,6 +285,11 @@ func _draw_radiation(at: Vector2) -> void:
 		if mark < 100.0:
 			draw_node.draw_rect(Rect2(bar.position + Vector2(bar.size.x * mark / 100.0, -1), Vector2(1, bar.size.y + 2)), Color(1, 1, 1, 0.5))
 	_num(at + Vector2(bar_x + 124, 12), "%d" % int(v), col)
+	# V3: where you are and today's goal, tiny, under the bar
+	var line := goal_text
+	if line != "":
+		draw_node.draw_string(_font, at + Vector2(bar_x - 22, 26), line, HORIZONTAL_ALIGNMENT_CENTER, 186, UIKit.fs(7), Color(0, 0, 0, 0.8))
+		draw_node.draw_string(_font, at + Vector2(bar_x - 23, 25), line, HORIZONTAL_ALIGNMENT_CENTER, 186, UIKit.fs(7), Color(0.9, 0.88, 0.75))
 
 func _draw_backpack_icon(at: Vector2) -> void:
 	# tier icon (24x24, drawn 1:1, right-aligned at the screen edge), else the generic pack (16 px)

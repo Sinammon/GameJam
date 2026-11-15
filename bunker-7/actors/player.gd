@@ -15,7 +15,8 @@ const BASE_SPEED := 100.0
 const JUMP_VELOCITY := -290.0
 
 # What the player carries. Keys match the GameState contract.
-var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0, "water": 0, "food": 0}
+var items := {"wood": 0, "concrete": 0, "scrap": 0, "circuits": 0, "water": 0, "food": 0,
+	"dirty_water": 0, "raw_meat": 0, "mushroom": 0, "canned_food": 0, "bandage": 0, "radio_part": 0}
 var dead := false
 var frozen := false            # true after banking: no more input
 var speed := BASE_SPEED
@@ -275,6 +276,14 @@ func add_item(kind: String, n: int) -> int:
 		items[kind] += added
 		items_changed.emit()
 	return added
+
+# Takes one of a kind out (eating, drinking, bandaging). false if none is carried.
+func use_item(kind: String) -> bool:
+	if int(items.get(kind, 0)) <= 0:
+		return false
+	items[kind] -= 1
+	items_changed.emit()
+	return true
 
 func clear_items() -> void:
 	for k in items:

@@ -15,7 +15,8 @@ signal backpack_toggled(open: bool)
 
 const TOOLS := ["axe", "pickaxe", "flashlight", "canteen", "medkit"]
 const TIER_SLOTS := [12, 16, 20, 24]     # backpack tiers 1..4
-const MATERIALS := ["wood", "concrete", "scrap", "circuits", "water", "food"]
+const MATERIALS := ["wood", "concrete", "scrap", "circuits", "water", "food",
+	"canned_food", "dirty_water", "raw_meat", "mushroom", "bandage", "radio_part"]
 
 var player: Node = null
 var selected := 0

@@ -69,6 +69,10 @@ var _outside_tex: Texture2D = null  # for the dark back wall behind dug-out bloc
 var _back: Node2D                   # draws the back wall (behind the ground, in front of the sky)
 var dug := {}                       # Vector2i -> true for every dug-out block
 var rng := RandomNumberGenerator.new()
+# V3: the location's ore table (scenes/locations.gd "ores"); {} = the surface rules below.
+# {"chance": x (multiplies the ore chance), "rocks": p (a floor block is an exposed ore rock),
+#  "areas": [{kind: weight}, ...] for the near / middle / far third}
+var ore_cfg: Dictionary = {}
 
 func _ready() -> void:
 	z_index = 1
@@ -201,6 +205,8 @@ func _placeholder_ore(dirt: Image) -> Image:
 # (1..), far: 0 at the hatch .. 1 at the edges. Deeper and farther = richer.
 # Ores only within dig depth; circuits only deep (2+) and far (> 60% out).
 func kind_for(depth: int, far: float, area: int) -> String:
+	if not ore_cfg.is_empty():
+		return _kind_from_cfg(depth, far, area)
 	if depth <= 0:
 		return "surface"
 	if depth >= MAX_DIG_DEPTH:
@@ -219,6 +225,31 @@ func kind_for(depth: int, far: float, area: int) -> String:
 			return "concrete" if roll < 0.45 else ("pipe" if roll < 0.7 else ("scrap_ore" if roll < 0.9 else "planks"))
 		_:   # depot: scrap, concrete, toxic crystals
 			return "scrap_ore" if roll < 0.4 else ("concrete" if roll < 0.65 else ("toxic" if roll < 0.85 else "pipe"))
+
+func _kind_from_cfg(depth: int, far: float, area: int) -> String:
+	if depth >= MAX_DIG_DEPTH:
+		return "dirt"
+	if depth <= 0:
+		return _pick_ore(area) if rng.randf() < float(ore_cfg.get("rocks", 0.0)) else "surface"
+	var chance := (0.06 + 0.05 * depth + 0.12 * far) * float(ore_cfg.get("chance", 1.0))
+	if rng.randf() > chance:
+		return "dirt"
+	return _pick_ore(area)
+
+func _pick_ore(area: int) -> String:
+	var areas: Array = ore_cfg.get("areas", [])
+	if areas.is_empty():
+		return "scrap_ore"
+	var w: Dictionary = areas[clampi(area, 0, areas.size() - 1)]
+	var total := 0.0
+	for k in w:
+		total += float(w[k])
+	var roll := rng.randf() * total
+	for k in w:
+		roll -= float(w[k])
+		if roll <= 0.0:
+			return k
+	return "scrap_ore"
 
 # Remembers the kind and sets the tile. dirt/surface use art_coords from tiles_outside.
 func place(cell: Vector2i, kind: String, art_coords: Vector2i) -> void:
