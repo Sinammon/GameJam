@@ -1,8 +1,8 @@
 extends CanvasLayer
 # Expedition HUD, icons only (tiny numbers, no words):
 #   top-left: hearts, water drop + count, food + count (what you carry)
-#   top-centre: geiger counter (5 states) + radiation bar (green -> yellow -> red)
-#   top-right: backpack icon + used/limit
+#   top-centre: geiger counter (ui_geiger.png, 5 frames = radiation level 0..4) + radiation bar
+#   top-right: backpack icon (icon_backpack_<tier>.png, tier from GSBridge) + used/limit
 #   bottom-left: 5-slot hotbar; Tab opens the backpack grid above it
 #   screen edge: "go home" arrow pointing at the hatch
 #   radiation vignette pulse at 60% / 85% / 100%, red flash on damage
@@ -46,6 +46,7 @@ var player: Node = null
 var inventory: Node = null
 var radiation: RefCounted = null
 var hatch_x := 0.0
+var backpack_tier := 1              # GSBridge.backpack_tier(), read once in setup
 var home_arrow_visible := false     # read by tests
 
 var _tex := {}                      # path -> Texture2D or null (cached)
@@ -66,6 +67,7 @@ func setup(p: Node, inv: Node, rad: RefCounted, hx: float) -> void:
 	inventory = inv
 	radiation = rad
 	hatch_x = hx
+	backpack_tier = GSBridge.backpack_tier()
 	p.hurt.connect(func(_a: int, _s: String) -> void: flash_hurt())
 
 func _process(delta: float) -> void:
@@ -225,13 +227,16 @@ func _draw_radiation(at: Vector2) -> void:
 	var v: float = radiation.value
 	var lvl: int = radiation.level()
 	var col: Color = RadiationScript.color(v)
-	# geiger counter: 5-frame strip if present, else the radiation icon tinted by level
+	# geiger counter: 5-frame strip (24x24 frames, drawn 1:1) if present, else the radiation icon tinted by level
 	var strip := _t("ui_geiger")
+	var bar_x := 20.0
 	if strip:
-		var fw := strip.get_width() / 5.0
+		var fw := floorf(strip.get_width() / 5.0)
 		var fh := float(strip.get_height())
-		var s := minf(16.0 / fh, 1.0)
-		draw_node.draw_texture_rect_region(strip, Rect2(at, Vector2(fw, fh) * s), Rect2(fw * lvl, 0, fw, fh))
+		var s := minf(24.0 / fh, 1.0)
+		var shake := Vector2(roundf(sin(_time * 40.0)), 0) if lvl >= 4 else Vector2.ZERO
+		draw_node.draw_texture_rect_region(strip, Rect2(at + Vector2(0, -2) + shake, Vector2(fw, fh) * s), Rect2(fw * clampi(lvl, 0, 4), 0, fw, fh))
+		bar_x = ceilf(fw * s) + 4.0
 	else:
 		var icon := _t("icon_radiation")
 		var shake := Vector2(sin(_time * 40.0), 0) * (0.0 if lvl < 3 else 1.0)
@@ -242,26 +247,36 @@ func _draw_radiation(at: Vector2) -> void:
 		for i in lvl:   # tick marks = state
 			draw_node.draw_rect(Rect2(at + Vector2(i * 4, 17), Vector2(3, 2)), col)
 	# bar
-	var bar := Rect2(at + Vector2(20, 4), Vector2(120, 8))
+	var bar := Rect2(at + Vector2(bar_x, 4), Vector2(120, 8))
 	draw_node.draw_rect(bar.grow(1), Color(0.05, 0.05, 0.05, 0.85))
 	draw_node.draw_rect(Rect2(bar.position, Vector2(bar.size.x * v / 100.0, bar.size.y)), col)
 	for mark in RadiationScript.WARN_AT:   # 60 / 85 notches
 		if mark < 100.0:
 			draw_node.draw_rect(Rect2(bar.position + Vector2(bar.size.x * mark / 100.0, -1), Vector2(1, bar.size.y + 2)), Color(1, 1, 1, 0.5))
-	_num(at + Vector2(144, 12), "%d" % int(v), col)
+	_num(at + Vector2(bar_x + 124, 12), "%d" % int(v), col)
 
 func _draw_backpack_icon(at: Vector2) -> void:
-	var tex := _t("icon_backpack")
+	# tier icon (24x24, drawn 1:1, right-aligned at the screen edge), else the generic pack (16 px)
+	var tex := _t("icon_backpack_%d" % backpack_tier)
+	var box := 24.0
 	if tex == null:
-		tex = _t("obj_last_stand_pack")
+		box = 16.0
+		tex = _t("icon_backpack")
+		if tex == null:
+			tex = _t("obj_last_stand_pack")
 	var full: bool = player.capacity_left() <= 0
 	var tint := Color(1, 0.6, 0.5) if full else Color(1, 1, 1)
+	var right := at.x + 16.0
 	if tex:
-		var s := minf(16.0 / tex.get_height(), 1.0)
-		draw_node.draw_texture_rect(tex, Rect2(at, tex.get_size() * s), false, tint)
+		var s := minf(box / maxf(tex.get_width(), tex.get_height()), 1.0)
+		var sz := (tex.get_size() * s).floor()
+		var pos := Vector2(right - sz.x, at.y + floorf((box - sz.y) / 2.0) - (2.0 if box > 16.0 else 0.0))
+		draw_node.draw_texture_rect(tex, Rect2(pos, sz), false, tint)
+		right = pos.x
 	else:
 		draw_node.draw_rect(Rect2(at + Vector2(2, 2), Vector2(12, 14)), Color(0.75, 0.6, 0.25) * tint)
-	_num(Vector2(at.x - 44, at.y + 12), "%d/%d" % [player.total_items(), player.carry_limit],
+		right = at.x
+	_num(Vector2(right - 44, at.y + 12), "%d/%d" % [player.total_items(), player.carry_limit],
 		Color(1, 0.5, 0.4) if full else Color(0.95, 0.95, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, 42)
 
 func _slot(r: Rect2, selected := false, locked := false) -> void:
@@ -285,8 +300,8 @@ func _draw_tool(tool_id: String, r: Rect2) -> void:
 		var tex := _t(file)
 		if tex:
 			var s := minf(16.0 / maxf(tex.get_width(), tex.get_height()), 1.0)
-			var sz := tex.get_size() * s
-			draw_node.draw_texture_rect(tex, Rect2(r.position + (r.size - sz) / 2.0, sz), false)
+			var sz := (tex.get_size() * s).floor()
+			draw_node.draw_texture_rect(tex, Rect2(r.position + ((r.size - sz) / 2.0).floor(), sz), false)
 			return
 	var c := r.position + r.size / 2.0
 	match tool_id:   # simple drawn placeholders
