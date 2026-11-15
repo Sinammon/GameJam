@@ -3,7 +3,7 @@ extends CharacterBody2D
 # Art: AnimatedSprite2D built from art/characters_clean/survivor_*.png. If the
 # frames are missing, the old orange ColorRect ("Body") is shown instead.
 # Swings: chop (axe), mine (pickaxe). flashlight_idle while the flashlight is held
-# and standing still. climb (seen from behind) is loaded for later, not played yet.
+# and standing still. climb (seen from behind) plays while climbing down the hatch ladder (climb_into).
 
 signal message(text: String)   # HUD shows these
 signal items_changed
@@ -25,6 +25,7 @@ var health: Node = null        # actors/health.gd, created in _ready
 var _stun_left := 0.0          # > 0 after knockback: input doesn't steer
 var facing := 1.0              # -1 left, +1 right (last walking direction or swing aim)
 var held_tool := ""            # selected hotbar tool (set by the expedition); "flashlight" changes the idle pose
+var climbing := false          # true while climbing down into the hatch (no physics, climb anim)
 
 const HealthScript := preload("res://actors/health.gd")
 const KNOCKBACK_SPEED := 170.0
@@ -103,6 +104,11 @@ func _process(delta: float) -> void:
 		return
 	_action_left = maxf(0.0, _action_left - delta)
 	sprite.flip_h = facing < 0.0
+	if climbing:
+		if sprite.sprite_frames.has_animation("climb"):
+			sprite.flip_h = false
+			_play("climb")
+		return
 	if not is_on_floor() and sprite.sprite_frames.has_animation("jump"):
 		_play("jump")
 		sprite.pause()
@@ -136,6 +142,19 @@ func use_tool(tool_id: String) -> bool:
 	if dead or frozen or not TOOL_ANIMS.has(tool_id):
 		return false
 	return play_action(TOOL_ANIMS[tool_id], 0.35)
+
+# Banking: step onto the hatch ladder at `top` and climb down `depth` px in `time` s,
+# drawn behind the ground (z -1) so the survivor disappears into the shaft.
+func climb_into(top: Vector2, depth: float, time: float) -> void:
+	if climbing:
+		return
+	climbing = true
+	frozen = true
+	velocity = Vector2.ZERO
+	z_index = -1
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", top, 0.12)
+	tw.tween_property(self, "global_position:y", top.y + depth, time)
 
 func face(dir: float) -> void:
 	if dir != 0.0:
@@ -183,6 +202,8 @@ func _on_depleted(source: String) -> void:
 	out_of_health.emit(source)
 
 func _physics_process(delta: float) -> void:
+	if climbing:
+		return   # the climb tween moves us
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 	if dead or frozen:
