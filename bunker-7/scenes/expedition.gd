@@ -43,6 +43,11 @@ const TREE_MIN_COL := 12
 const TREE_GAP := [5, 11]    # columns between trees (random in this range)
 
 const PAUSE_MENU := "res://scenes/pause_menu.tscn"
+# Banking: the survivor climbs down the hatch ladder and the screen fades, then GameState
+# changes the scene (it waits GameState.HATCH_TRANSITION = 0.9 s after bank_loot).
+const CLIMB_TIME := 0.75
+const CLIMB_DEPTH := 30.0
+const FADE_IN := 0.35        # black -> picture when the expedition starts (coming up the ladder)
 const LIGHTING := "res://scenes/lighting.gd"   # optional: the game runs without it
 
 # Lighting tuning (Phase 3). Ambient = DUSK x zone tint x (1 - darkness), never
@@ -142,6 +147,8 @@ func _ready() -> void:
 		pause_menu = load(PAUSE_MENU).instantiate()
 		add_child(pause_menu)
 	_setup_lighting()
+	fade.color.a = 1.0
+	create_tween().tween_property(fade, "color:a", 0.0, FADE_IN)
 
 # 0 = suburb (next to the hatch), 1 = market, 2 = depot (edges). Same on both sides.
 func area_of(col: int) -> int:
@@ -358,7 +365,7 @@ func _process(delta: float) -> void:
 	if ended:
 		return   # no radiation during the death fade or after banking
 	rad.tick(delta, distance_frac(player.position.x), rad_mult, hatch.player_inside)
-	hud.set_hint("E: bank loot" if hatch.player_inside else "")
+	hud.set_hint("E: climb down (bank loot)" if hatch.player_inside else "")
 	if lighting:
 		lighting.set_ambient(dusk_ambient())
 	# the camera follows the player down into holes, else shows one screen from the top
@@ -481,7 +488,18 @@ func _on_bank_requested(p: Node) -> void:
 	p.frozen = true
 	var loot: Dictionary = p.items.duplicate()
 	p.clear_items()
-	GSBridge.bank_loot(loot)
+	GSBridge.bank_loot(loot)   # banks once now; GameState changes the scene after the climb
+	_climb_down(p)
+
+# The survivor climbs down the hatch ladder while the screen fades to black.
+func _climb_down(p: Node) -> void:
+	if hatch.has_method("hold_open"):
+		hatch.hold_open()   # obj_hatch_open.png, drawn over the survivor
+	if p.has_method("climb_into"):
+		p.climb_into(Vector2(hatch.global_position.x, hatch.global_position.y - 1.0), CLIMB_DEPTH, CLIMB_TIME)
+	var tw := create_tween()
+	tw.tween_interval(CLIMB_TIME * 0.35)
+	tw.tween_property(fade, "color:a", 1.0, CLIMB_TIME * 0.65)
 
 # No pausing once the expedition is ending (death fade / scene change).
 func _disable_pause() -> void:

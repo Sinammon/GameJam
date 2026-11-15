@@ -1,0 +1,9 @@
+{
+  "scene_path": "res://tools/shots/shot_hud.tscn",
+  "viewport_size": [480, 270],
+  "settle_frames": 10,
+  "steps": [
+    {"type": "wait_seconds", "seconds": 4.0},
+    {"type": "screenshot", "path": "user://shot_hud.png", "expect": {"not_blank": true}}
+  ]
+}

@@ -1,5 +1,6 @@
 extends Control
-# Morning screen: shows the state of the run and the "Go Outside" button.
+# Morning screen (optional since the walkable bunker): shows the state of the run and the "Go Outside" button.
+# New days now start in the bunker (GameState.start_day); this screen still works if opened directly.
 
 var _title: Label
 var _bounces: HBoxContainer
@@ -41,8 +42,8 @@ func _ready() -> void:
 	_refresh()
 
 # Swap an icon row in place (rows are rebuilt on every refresh).
-func _set_row(old: HBoxContainer, items: Array, size: int) -> HBoxContainer:
-	var row := UIKit.icon_row(items, size, 12)
+func _set_row(old: HBoxContainer, items: Array, font_size: int) -> HBoxContainer:
+	var row := UIKit.icon_row(items, font_size, 12)
 	_box.add_child(row)
 	_box.move_child(row, old.get_index())
 	old.queue_free()
@@ -74,7 +75,8 @@ func _refresh() -> void:
 
 func _go_outside() -> void:
 	_go.disabled = true
-	get_tree().change_scene_to_file("res://scenes/expedition.tscn")
+	if not GameState.go_outside():
+		_go.disabled = false
 
 func _wait_inside() -> void:
 	_wait.disabled = true   # one night per click

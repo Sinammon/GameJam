@@ -156,3 +156,78 @@ Cleaned by `art_tools/clean_art.py` from `../art_raw_v2/{chars,world}` (raws unt
   clean_art.py. `tiles_crack.png` 64x16 (4 stages). Surface and dirt still come from `tiles_outside.png`.
 - Screenshots: `tools/shots/shot_zombie.json` (flashlight idle, a zombie attacking, one walking), `shot_ore.json`
   (every ore tile in a pit wall + cracks), `shot_chop.json` (mid axe swing on a pine), plus the old ones.
+
+## Art V3 batch
+Cleaned by `art_tools/clean_art.py --chars ../art_raw_v3 --world ../art_raw_v3` (raws untracked); list in `art/ART_INDEX.md`.
+- **Zombie**: new grey-skinned `zombie_walk_0..3` (22x32, replaces the old walk) and `zombie_death_0..3` (32x30 shared
+  canvas, bottom baseline, same px scale as the walk: stagger, buckle, fall back, lying flat). `_die()` plays `death` once
+  at 8 fps, holds the lying frame (`DEATH_HOLD` 0.25 s), then the old fade (`DEATH_TIME` * 0.5). The eye glow follows the
+  death frames. The dark-green tint of the hurt frame is gone (it stays only as the no-art fallback: hold last hurt frame,
+  sink, fade). Attack/hurt frames are still the V2 painted ones.
+- **HUD**: `ui_geiger.png` (5 frames of 24x24, frame = `radiation.level()`), drawn 1:1, the bar moved right to make room;
+  the red frame shakes 1 px at level 4. Hotbar tools: `icon_tool_{axe,pickaxe,flashlight,canteen}` (medkit keeps
+  `icon_medkit`), pixel-aligned. Backpack: `icon_backpack_<GSBridge.backpack_tier()>` (24x24), else `icon_backpack`, else the pack art.
+- **Hatch** (`actors/hatch.gd`): `obj_hatch_open.png` (32x23) while the player's InteractArea overlaps the hatch or the
+  player is inside, `obj_hatch.png` otherwise; `hold_open()` keeps it open and draws it over the survivor while climbing down.
+- **Tutorial**: the picture now fills the screen and the text sits in a dark panel along the bottom (top ~165 px is the
+  picture's subject area). Slide 3 = `tut_3_radiation.png`; 1 = `title_art`, 7 = `ending_rescue`; 2, 4, 5, 6 are composed
+  in `tutorial.gd` (`_compose_*`) from survivor frames, sky/far city/ground tiles, crate + material icons, `bunker_overview`, rooms.
+- Bunker station art (`obj_workbench`, `obj_upgrade_bench`, `obj_locker`, `obj_door_locked/open`, `obj_lamp_ceiling`,
+  `obj_ladder`, `obj_ladder_top`, `tile_shaft_wall`) is used by the walkable bunker (below). `icon_tool_pipe` is still unused.
+
+## Phase 4: the walkable bunker
+`scenes/bunker.tscn/.gd` (a Node2D built in code) replaced the old menu-style bunker. `scenes/bunker_walker.gd` is the
+survivor inside (no physics: one flat floor, A/D, scripted ladder climbs, survivor idle/walk/climb/wakeup frames, orange
+box without art). `scenes/bunker_popup.gd` is the small station panel (CanvasLayer 60, Esc / E / Close button close it).
+- **Layout** (constants at the top of bunker.gd): one screen tall (480x270), 1250 px wide (about 2.6 screens), camera
+  follows the walker horizontally. Sky + far city strip (`bg_sky`, `bg_far`) above the ground line `SURFACE_Y` 72,
+  packed dirt below, rooms `ROOM_Y` 160..238 (the 234x78 room pictures), feet on `FLOOR_Y` 226.
+  Rooms left -> right: `garden | storage | BEDROOM | utility | radio` (`ROOM_ORDER`). The ladder shaft (tile_shaft_wall
+  walls, obj_ladder rungs, obj_ladder_top + obj_hatch_open at the surface) comes down into the bedroom exactly where its
+  picture has the ladder painted (`SHAFT_IN_ROOM` 39).
+- **Doors:** each seam between two rooms is a door owned by the room farther from the bedroom: `obj_door_locked`
+  (boarded) while that room is locked, `obj_door_open` after. A locked room shows `room_locked`, darkened, with its name,
+  and the walker cannot pass its door. So rooms open outwards in order: left storage then garden, right utility then
+  radio (GameState itself still allows any order; an unlocked room behind a locked one simply stays unreachable).
+  **Decision for the user:** this order puts the garden behind the storage room and the radio behind the utility room.
+- **Stations** (prompt = a key box "E" + label above the station, on a CanvasLayer that follows the world so the
+  ambient light doesn't darken it; nearest station within `REACH` 15 px):
+  ladder foot (climb up), calendar (painted on the bedroom wall; day number drawn under it; popup: day, convoy, radio,
+  bounces, scars), cot (`bld_cot`; popup with tonight's upkeep and Sleep; `sleep()`, or `wait_inside()` if you
+  didn't go out), locker (stock popup), workbench in every unlocked room that has buildings (bedroom, utility, garden,
+  radio: build / Built / repair), upgrade bench (bedroom: backpack tiers), locked doors (unlock popup).
+  Station x per room: `STATION_X`; building spots: `BUILD_X`. Not-yet-built buildings show as a faint ghost on their
+  spot; built ones use `bld_<id>` (labelled blocks without art). The Reinforced Door (bedroom building) stands next to
+  the hatch on the surface. Damaged rooms get `room_damaged_overlay`, tinted buildings, a faster lamp flicker; their
+  workbench offers Repair (`GameState.REPAIR_COST`) and refuses building (`can_build` checks the damage).
+- **Popups:** Enter / click on the focused button; every button press refills the popup from GameState (an unlock
+  closes it, the door opens). While a popup is open the walker stops and the pause menu is disabled; it is re-enabled
+  deferred after closing, so the Esc that closes a popup never opens the pause menu.
+- **Flow:** `GameState.bunker_arrival`: "hatch" after `bank_loot` (the expedition plays its climb-down + fade, then
+  after `HATCH_TRANSITION` 0.9 s GameState changes to the bunker; the walker appears at the top of the shaft and climbs
+  down by itself; a banner shows what was stored), "cot" for a new day / Day 1 / after death (wake-up animation at the
+  cot + a day-summary banner). E at the ladder foot: if `GameState.go_outside_block()` is "" the walker climbs up, the
+  screen fades and `GameState.go_outside()` starts the expedition (one trip a day: after it, or in a radiation storm,
+  the ladder says why not). Sleep -> overnight summary (or night event) -> Continue = `GameState.start_day()` -> bunker
+  at the cot. Death -> scar pick -> the night -> overnight -> bunker at the cot. `morning.tscn` still works if opened
+  (its Go Outside uses `go_outside()`) but nothing routes to it any more except as the `go_to` fallback.
+- **Tutorial:** `start_game` sets `show_tutorial`; the bunker opens `Tutorial.open(self)` once if
+  `Tutorial.is_first_time()` (walking off until it closes). Hints (`SettingsStore.hint_once`): `bunker_ladder`
+  (ladder / one trip a day) and `bunker_stations` (walk up and press E), shown in the bottom banner.
+- **Lights:** `Lighting.setup_scene(self, AMBIENT)` (loaded with `load()`, skipped if missing/broken), a warm LightSource
+  at each open room's painted lamp (`LAMP_X`) and one over every door seam with the bottom 16 px of
+  `obj_lamp_ceiling` drawn there (cap 6 in full / 3 in simple picks the nearest). The pause menu is added and watched.
+- **HUD:** top strip with day, bounces, health, water, food, materials and the backpack icon (`icon_backpack_<tier>`)
+  with the carry limit.
+
+### Backpack tiers and the carry-limit rule
+All in `autoload/game_state.gd`: `BACKPACK_SLOTS` [12, 16, 20, 24], `BACKPACK_COSTS` (tier 2: 6 scrap + 4 wood,
+tier 3: 10 scrap + 6 concrete + 2 circuits, tier 4: 14 scrap + 8 concrete + 4 circuits), `STORAGE_BONUS` 4,
+`STEADY_BONUS` 2. Rule (one function, `carry_limit_for_tier`): **carry = tier slots + 4 if the Storage Room is
+unlocked + 2 with Steady Hands** (so 12..30). The tiers are the base; the old storage bonus (12 -> 16) stays as a
+flat +4 on top. The expedition's backpack grid already shows max(tier slots, carry limit) slots.
+New contract: `get_backpack_tier()`, `upgrade_backpack() -> bool` (checks the next tier's cost, spends it; false at
+tier 4 or when short), `backpack_upgrade_cost(tier) -> Dictionary` ({} for tier 1 / out of range),
+`can_upgrade_backpack()`, `max_health()` (10), `get_day()`, `go_outside()`, `go_outside_block()`, `start_day()`,
+`last_banked`. `bank_loot` takes all six LOOT_KINDS (water and food too).
+- Test: `tools/test_bunker.gd` (real GameState, own settings file). Screenshots: `tools/shots/shot_bunker_*.json`.

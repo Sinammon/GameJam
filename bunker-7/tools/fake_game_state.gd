@@ -1,6 +1,6 @@
 extends Node
 # Test double for GameState: records every contract call, never changes scenes.
-# Used only by tools/test_expedition.gd.
+# Used by tools/test_expedition.gd, test_phase2.gd and test_lighting.gd (the expedition side only).
 
 var rad_mult := 1.0
 var carry := 12
@@ -22,6 +22,8 @@ func has_air_filter() -> bool: return false
 func has_reinforced_door() -> bool: return false
 func get_backpack_tier() -> int: return tier
 func get_max_health() -> int: return max_hp
+func max_health() -> int: return max_hp
+func get_day() -> int: return day
 func get_last_stand_pack() -> Dictionary: return pack
 func bank_loot(items: Dictionary) -> void: bank_calls.append(items.duplicate())
 func player_died(items: Dictionary, position: Vector2) -> void: died_calls.append([items.duplicate(), position])

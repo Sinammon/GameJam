@@ -158,9 +158,9 @@ func _tutorial_is_open() -> bool:
 func _input(event: InputEvent) -> void:
 	if not enabled or not event.is_pressed() or event.is_echo():
 		return
-	var toggle := event.is_action_pressed(toggle_action())
+	var toggled := event.is_action_pressed(toggle_action())
 	var back := is_open and event.is_action_pressed(&"ui_cancel")
-	if not (toggle or back):
+	if not (toggled or back):
 		return
 	if _tutorial_is_open():
 		return

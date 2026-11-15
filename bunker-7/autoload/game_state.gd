@@ -38,6 +38,23 @@ const BUILDINGS := {
 	"radio":    {"name": "Radio Beacon",      "room": "radio",   "cost": {"scrap": 10}, "desc": "Calls the convoy: needed to be rescued"},
 }
 
+# Backpack tiers 1..4 (upgrade bench in the bunker's bedroom). Carry-limit rule (one place:
+# carry_limit_for_tier):  carry = BACKPACK_SLOTS[tier - 1]           (12 / 16 / 20 / 24)
+#                               + STORAGE_BONUS if the Storage Room is unlocked   (+4)
+#                               + STEADY_BONUS with the Steady Hands scar          (+2)
+# So the tiers are the base slots and the room/scar bonuses stack on top (max 24 + 4 + 2 = 30).
+# BACKPACK_COSTS[t] = what it costs to go from tier t - 1 to tier t (all backpack costs live here).
+const BACKPACK_SLOTS := [12, 16, 20, 24]
+const BACKPACK_COSTS := {
+	2: {"scrap": 6, "wood": 4},
+	3: {"scrap": 10, "concrete": 6, "circuits": 2},
+	4: {"scrap": 14, "concrete": 8, "circuits": 4},
+}
+const STORAGE_BONUS := 4
+const STEADY_BONUS := 2
+# Seconds between bank_loot and the scene change: the expedition plays the ladder climb + fade meanwhile.
+const HATCH_TRANSITION := 0.9
+
 const SCARS := {
 	"thick_skin": {"name": "Thick Skin",      "desc": "-20% radiation"},
 	"scavenger":  {"name": "Scavenger's Eye", "desc": "+1 loot per crate"},
@@ -63,6 +80,11 @@ var built: Dictionary = {}               # {"purifier": true}
 var scars: Array[String] = []
 var last_stand_pack: Dictionary = {}     # {} or {"items": {...}, "position": Vector2}
 var damaged_rooms: Array[String] = []    # a damaged room's buildings don't work until repaired
+var backpack_tier := 1                   # 1..4, see BACKPACK_SLOTS
+var went_outside := false                # true once today's expedition started (one per day)
+var bunker_arrival := "cot"              # where the walkable bunker puts you: "cot" (new day) or "hatch" (back from outside)
+var show_tutorial := false               # true right after start_game: the bunker opens the slideshow (first time only)
+var last_banked: Dictionary = {}         # what the last bank_loot added (the bunker shows it on arrival)
 
 # One-day flags set by night events (used from Stage 4).
 var skip_expedition := false
@@ -90,6 +112,11 @@ func start_game(d: int) -> void:
 	scars = []
 	last_stand_pack = {}
 	damaged_rooms = []
+	backpack_tier = 1
+	went_outside = false
+	bunker_arrival = "cot"
+	show_tutorial = true
+	last_banked = {}
 	current_event = {}
 	last_night_summary = []
 	_pending_notes = []
@@ -101,12 +128,41 @@ func start_game(d: int) -> void:
 	tomorrow_rad_mult = 1.0
 	bonus_crate = false
 	changed.emit()
-	go_to("res://scenes/morning.tscn")
+	go_to(BUNKER)
+
+const BUNKER := "res://scenes/bunker.tscn"
+const EXPEDITION := "res://scenes/expedition.tscn"
 
 # Change scene safely: if a scene doesn't exist yet (still being built), use the fallback.
-func go_to(path: String, fallback: String = "res://scenes/morning.tscn") -> void:
+# delay > 0: change after that many seconds (lets the old scene finish an animation).
+func go_to(path: String, fallback: String = "res://scenes/morning.tscn", delay: float = 0.0) -> void:
 	var target := path if ResourceLoader.exists(path) else fallback
-	get_tree().change_scene_to_file.call_deferred(target)
+	if delay <= 0.0:
+		get_tree().change_scene_to_file.call_deferred(target)
+		return
+	await get_tree().create_timer(delay).timeout
+	get_tree().change_scene_to_file(target)
+
+# A new day starts in the walkable bunker, at the cot (overnight summary "Continue").
+func start_day() -> void:
+	bunker_arrival = "cot"
+	go_to(BUNKER)
+
+# "" if the player may climb up and go outside now, else the reason to show.
+func go_outside_block() -> String:
+	if skip_expedition:
+		return "Radiation storm outside. Stay in: sleep at the cot."
+	if went_outside:
+		return "It's getting dark. Sleep at the cot first."
+	return ""
+
+# Bunker ladder (or the morning screen): start today's expedition. One per day.
+func go_outside() -> bool:
+	if go_outside_block() != "":
+		return false
+	went_outside = true
+	go_to(EXPEDITION)
+	return true
 
 # ---------------------------------------------------------------- CONTRACT: read
 func get_radiation_multiplier() -> float:
@@ -126,7 +182,21 @@ func get_loot_multiplier() -> float:
 	return m
 
 func get_carry_limit() -> int:
-	return (16 if is_room_unlocked("storage") else 12) + (2 if has_scar("steady") else 0)
+	return carry_limit_for_tier(get_backpack_tier())
+
+# The carry-limit rule (see BACKPACK_SLOTS): tier slots + storage room bonus + Steady Hands bonus.
+func carry_limit_for_tier(tier: int) -> int:
+	return int(BACKPACK_SLOTS[clampi(tier, 1, BACKPACK_SLOTS.size()) - 1]) \
+		+ (STORAGE_BONUS if is_room_unlocked("storage") else 0) + (STEADY_BONUS if has_scar("steady") else 0)
+
+func get_backpack_tier() -> int:
+	return clampi(backpack_tier, 1, BACKPACK_SLOTS.size())
+
+func get_day() -> int:
+	return day
+
+func max_health() -> int:
+	return MAX_HEALTH
 
 func get_move_speed_bonus() -> float:
 	return 0.1 if has_scar("light_feet") else 0.0
@@ -147,12 +217,18 @@ func get_last_stand_pack() -> Dictionary:
 # ---------------------------------------------------------------- CONTRACT: call
 # The expedition calls this when the player returns alive to the hatch.
 func bank_loot(items: Dictionary) -> void:
+	last_banked = {}
 	for kind in LOOT_KINDS:
-		add_item(kind, int(items.get(kind, 0)))
+		var n := maxi(0, int(items.get(kind, 0)))
+		add_item(kind, n)
+		if n > 0:
+			last_banked[kind] = n
 	last_stand_pack = {}   # the old pack is only for one expedition
 	_clear_day_flags()     # storm / bonus crate were for this expedition only
+	went_outside = true
+	bunker_arrival = "hatch"
 	changed.emit()
-	go_to("res://scenes/bunker.tscn")
+	go_to(BUNKER, "res://scenes/morning.tscn", HATCH_TRANSITION)   # the expedition plays the ladder climb meanwhile
 
 # The expedition calls this when radiation reaches 100%.
 func player_died(items: Dictionary, position: Vector2) -> void:
@@ -164,9 +240,10 @@ func player_died(items: Dictionary, position: Vector2) -> void:
 	_lose_bounce(true)
 
 # ---------------------------------------------------------------- night
-# Flow: bunker Sleep (or morning "Wait inside", or after a scar pick) -> sleep()
+# Flow: bunker cot (sleep, or wait_inside when you didn't go out), or after a scar pick -> sleep()
 #   -> upkeep (purifier, garden, eat, drink) -> maybe collapse (lose a bounce, scar pick)
-#   -> day + 1 -> ending (after day 7) / night event / overnight summary -> morning.
+#   -> day + 1 -> ending (after day 7) / night event / overnight summary -> start_day() -> bunker at the cot.
+# A day: wake at the cot -> ladder up (go_outside) -> expedition -> hatch (bank_loot) -> bunker -> cot.
 const STAT_KEYS := ["water", "food", "health", "wood", "concrete", "scrap", "circuits"]
 
 var rng := RandomNumberGenerator.new()
@@ -219,6 +296,9 @@ func _night_upkeep() -> void:
 
 func _end_night() -> void:
 	day += 1
+	went_outside = false
+	bunker_arrival = "cot"
+	last_banked = {}
 	changed.emit()
 	if day > MAX_DAY:
 		go_to("res://scenes/ending.tscn", "res://scenes/main_menu.tscn")
@@ -461,7 +541,7 @@ func unlock_room(id: String) -> bool:
 
 func can_build(id: String) -> bool:
 	return BUILDINGS.has(id) and not is_built(id) and is_room_unlocked(BUILDINGS[id].room) \
-		and can_afford(BUILDINGS[id].cost)
+		and not is_room_damaged(BUILDINGS[id].room) and can_afford(BUILDINGS[id].cost)
 
 func build(id: String) -> bool:
 	if not can_build(id) or not pay(BUILDINGS[id].cost):
@@ -477,6 +557,23 @@ func repair_room(id: String) -> bool:
 	if not can_repair(id) or not pay(REPAIR_COST):
 		return false
 	damaged_rooms.erase(id)
+	changed.emit()
+	return true
+
+# ---------------------------------------------------------------- backpack
+# Cost to reach `tier` (2..4) from the tier below; {} for tier 1 or out of range.
+func backpack_upgrade_cost(tier: int) -> Dictionary:
+	return (BACKPACK_COSTS.get(tier, {}) as Dictionary).duplicate()
+
+func can_upgrade_backpack() -> bool:
+	var next := get_backpack_tier() + 1
+	return BACKPACK_COSTS.has(next) and can_afford(BACKPACK_COSTS[next])
+
+# Checks the cost of the next tier, spends it and raises the tier. false at tier 4 or when short.
+func upgrade_backpack() -> bool:
+	if not can_upgrade_backpack() or not pay(BACKPACK_COSTS[get_backpack_tier() + 1]):
+		return false
+	backpack_tier = get_backpack_tier() + 1
 	changed.emit()
 	return true
 

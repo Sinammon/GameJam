@@ -96,14 +96,19 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | characters_clean/zombie_attack_2.png | 29x30 | Zombie_attack.png |
 | characters_clean/zombie_attack_strip.png | 87x30 | Zombie_attack.png |
 | characters_clean/zombie_concept.png | 30x64 | zombie_concept.png |
+| characters_clean/zombie_death_0.png | 32x30 | zombie_death.png |
+| characters_clean/zombie_death_1.png | 32x30 | zombie_death.png |
+| characters_clean/zombie_death_2.png | 32x30 | zombie_death.png |
+| characters_clean/zombie_death_3.png | 32x30 | zombie_death.png |
+| characters_clean/zombie_death_strip.png | 128x30 | zombie_death.png |
 | characters_clean/zombie_hurt_0.png | 24x32 | Zombie_hurt.png |
 | characters_clean/zombie_hurt_1.png | 24x32 | Zombie_hurt.png |
 | characters_clean/zombie_hurt_strip.png | 48x32 | Zombie_hurt.png |
-| characters_clean/zombie_walk_0.png | 17x32 | zombie_walk.png |
-| characters_clean/zombie_walk_1.png | 17x32 | zombie_walk.png |
-| characters_clean/zombie_walk_2.png | 17x32 | zombie_walk.png |
-| characters_clean/zombie_walk_3.png | 17x32 | zombie_walk.png |
-| characters_clean/zombie_walk_strip.png | 68x32 | zombie_walk.png |
+| characters_clean/zombie_walk_0.png | 22x32 | zombie_walk.png |
+| characters_clean/zombie_walk_1.png | 22x32 | zombie_walk.png |
+| characters_clean/zombie_walk_2.png | 22x32 | zombie_walk.png |
+| characters_clean/zombie_walk_3.png | 22x32 | zombie_walk.png |
+| characters_clean/zombie_walk_strip.png | 88x32 | zombie_walk.png |
 | world_clean/bg_far.png | 810x270 | FarCityLine.png |
 | world_clean/bg_near_depot.png | 810x270 | MilitaryBase.png |
 | world_clean/bg_near_market.png | 810x270 | GasStation.png |
@@ -122,6 +127,10 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/event_rats.png | 88x64 | ThumbNail.png |
 | world_clean/event_storm.png | 88x64 | ThumbNail.png |
 | world_clean/event_stranger.png | 88x64 | ThumbNail.png |
+| world_clean/icon_backpack_1.png | 24x24 | icon_tools.png |
+| world_clean/icon_backpack_2.png | 24x22 | icon_tools.png |
+| world_clean/icon_backpack_3.png | 23x24 | icon_tools.png |
+| world_clean/icon_backpack_4.png | 22x24 | icon_tools.png |
 | world_clean/icon_bounce.png | 16x16 | IconStatus.png |
 | world_clean/icon_circuits.png | 16x16 | Resources.png |
 | world_clean/icon_concrete.png | 16x15 | Resources.png |
@@ -132,14 +141,26 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/icon_medkit.png | 16x15 | IconStatus.png |
 | world_clean/icon_radiation.png | 16x15 | IconStatus.png |
 | world_clean/icon_scrap.png | 16x15 | Resources.png |
+| world_clean/icon_tool_axe.png | 16x16 | icon_tools.png |
+| world_clean/icon_tool_canteen.png | 13x16 | icon_tools.png |
+| world_clean/icon_tool_flashlight.png | 16x15 | icon_tools.png |
+| world_clean/icon_tool_pickaxe.png | 16x16 | icon_tools.png |
+| world_clean/icon_tool_pipe.png | 16x16 | icon_tools.png |
 | world_clean/icon_water.png | 9x16 | Resources.png |
 | world_clean/icon_wood.png | 16x13 | Resources.png |
 | world_clean/obj_branch.png | 9x8 | obj_trees.png |
 | world_clean/obj_bush.png | 30x20 | obj_trees.png |
 | world_clean/obj_crate_closed.png | 16x12 | WorldResources.png |
 | world_clean/obj_crate_open.png | 16x16 | WorldResources.png |
+| world_clean/obj_door_locked.png | 32x44 | bunker_stations.png |
+| world_clean/obj_door_open.png | 30x44 | bunker_stations.png |
 | world_clean/obj_hatch.png | 32x28 | WorldResources.png |
+| world_clean/obj_hatch_open.png | 32x23 | obj_hatchladder.png |
+| world_clean/obj_ladder.png | 10x16 | obj_hatchladder.png |
+| world_clean/obj_ladder_top.png | 16x12 | obj_hatchladder.png |
+| world_clean/obj_lamp_ceiling.png | 16x32 | bunker_stations.png |
 | world_clean/obj_last_stand_pack.png | 19x20 | WorldResources.png |
+| world_clean/obj_locker.png | 12x32 | bunker_stations.png |
 | world_clean/obj_logs.png | 21x14 | obj_trees.png |
 | world_clean/obj_puddle.png | 31x12 | WorldResources.png |
 | world_clean/obj_sign.png | 14x23 | WorldResources.png |
@@ -149,6 +170,8 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/obj_tree_oak_orange.png | 79x112 | obj_trees.png |
 | world_clean/obj_tree_pine.png | 82x128 | obj_trees.png |
 | world_clean/obj_tree_sapling.png | 23x48 | obj_trees.png |
+| world_clean/obj_upgrade_bench.png | 40x32 | bunker_stations.png |
+| world_clean/obj_workbench.png | 38x32 | bunker_stations.png |
 | world_clean/pickup_circuits.png | 16x14 | PickUpItems.png |
 | world_clean/pickup_concrete.png | 16x12 | PickUpItems.png |
 | world_clean/pickup_food.png | 16x12 | PickUpItems.png |
@@ -169,6 +192,7 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/scar_scavenger.png | 22x24 | Scars.png |
 | world_clean/scar_steady.png | 23x24 | Scars.png |
 | world_clean/scar_thick_skin.png | 21x24 | Scars.png |
+| world_clean/tile_shaft_wall.png | 16x16 | obj_hatchladder.png |
 | world_clean/tiles_bunker.png | 64x32 | Build.png |
 | world_clean/tiles_bunker_brick_damaged.png | 16x16 | Build.png |
 | world_clean/tiles_bunker_cave_dark.png | 16x16 | Build.png |
@@ -197,8 +221,15 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/tiles_outside_gravel.png | 16x16 | Outside ground.png |
 | world_clean/tiles_outside_rubble.png | 16x16 | Outside ground.png |
 | world_clean/tiles_outside_stone.png | 16x16 | Outside ground.png |
+| world_clean/tut_3_radiation.png | 480x270 | tut3_rad.png |
 | world_clean/ui_bar_frame.png | 195x26 | PanelButtons.png |
 | world_clean/ui_button_normal.png | 74x23 | PanelButtons.png |
 | world_clean/ui_button_pressed.png | 74x23 | PanelButtons.png |
+| world_clean/ui_geiger.png | 120x24 | ui_gieger.png |
+| world_clean/ui_geiger_0.png | 24x24 | ui_gieger.png |
+| world_clean/ui_geiger_1.png | 24x24 | ui_gieger.png |
+| world_clean/ui_geiger_2.png | 24x24 | ui_gieger.png |
+| world_clean/ui_geiger_3.png | 24x24 | ui_gieger.png |
+| world_clean/ui_geiger_4.png | 24x24 | ui_gieger.png |
 | world_clean/ui_panel.png | 183x58 | PanelButtons.png |
 | world_clean/ui_slot.png | 37x36 | PanelButtons.png |

@@ -19,8 +19,8 @@ func _ready() -> void:
 	b.pressed.connect(GameState.go_to.bind("res://scenes/main_menu.tscn"))
 	box.add_child(b)
 
-func _wrapped(text: String, size: int) -> Label:
-	var l := UIKit.outlined(text, size)
+func _wrapped(text: String, font_size: int) -> Label:
+	var l := UIKit.outlined(text, font_size)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(380, 0)
 	return l

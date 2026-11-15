@@ -2,11 +2,17 @@ extends Node
 # Stages the expedition for screenshots (run through run_scenario.py, see
 # COMMANDS_CODER1.md). mode "tree": chopping a tree. mode "hole": a mined hole
 # with a zombie next to it. Not part of the game.
+# V3 art modes save their own captures (user://shot_<mode>_<n>.png) at exact moments:
+# "zombie_death" (death frames side by side), "hud" (geiger levels, hotbar, backpack),
+# "hatch" (closed / open in reach / climbing down), "tutorial" (all 7 slides, no expedition).
 
 @export var mode := "tree"
 var ex: Node2D
 
 func _ready() -> void:
+	if mode == "tutorial":
+		_tutorial_stage.call_deferred()
+		return
 	ex = load("res://scenes/expedition.tscn").instantiate()
 	ex.zombies_enabled = false
 	add_child(ex)
@@ -20,6 +26,9 @@ func _stage() -> void:
 	var p: Node2D = ex.player
 	if mode.begins_with("light_"):
 		await _light_stage(p)
+		return
+	if mode in ["zombie_death", "hud", "hatch"]:
+		await _v3_stage(p)
 		return
 	if mode == "zombie":   # close-up: the player holding the flashlight, a zombie winding up next to them
 		var x: float = ex.HATCH_X + 400.0
@@ -135,3 +144,100 @@ func _light_stage(p: Node2D) -> void:
 	await _frames(90)   # let the ambient settle
 	if ex.lighting:
 		ex.lighting.ambient = ex.lighting.ambient_target
+
+# --- V3 art captures --------------------------------------------------------------
+
+func _capture(n: int) -> void:
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := "user://shot_%s_%d.png" % [mode, n]
+	img.save_png(path)
+	print("[shot] saved ", ProjectSettings.globalize_path(path))
+
+func _tutorial_stage() -> void:
+	var t: Tutorial = Tutorial.open(self)
+	t.auto_free = false
+	for i in Tutorial.SLIDES.size():
+		t.show_slide(i)
+		await _frames(6)
+		await _capture(i + 1)
+
+func _v3_stage(p: Node2D) -> void:
+	if ex.lighting:
+		ex.lighting.set_quality("off")   # plain colours for judging the art
+	p.health.invuln_left = 99.0
+	match mode:
+		"zombie_death":   # an idle walker + the 4 death frames (zombies killed 1/8 s apart), close-up
+			var x := _flat_spot(12) * 16.0
+			p.global_position = Vector2(x, ex.floor_y(x) - 1)
+			p.face(1.0)
+			ex.camera.zoom = Vector2(2, 2)
+			var zs: Array = []
+			for i in 5:
+				var z: Node = ex.spawner.spawn_at(x + 30.0 + i * 22.0)
+				z.player = null            # no chasing: stand still where placed
+				z._wander_dir = 0.0
+				z._wander_left = 99.0
+				zs.append(z)
+			await _frames(30)
+			await _capture(0)
+			for i in range(4, 0, -1):   # rightmost dies first = furthest into the animation
+				zs[i].take_hit(99.0, zs[i].global_position.x - 10.0)
+				await _frames(8)
+			await _capture(1)
+			await _frames(14)
+			await _capture(2)   # all lying, the first ones fading
+		"hud":
+			var x: float = ex.HATCH_X + 300.0
+			p.global_position = Vector2(x, ex.floor_y(x) - 1)
+			p.items = {"wood": 3, "scrap": 2, "water": 1, "food": 1}
+			ex.inventory.select(1)
+			var n := 0
+			for v in [10.0, 40.0, 70.0, 90.0, 100.0]:
+				ex.radiation = v
+				await _frames(4)
+				await _capture(n)
+				n += 1
+			ex.inventory.toggle_backpack()
+			await _frames(4)
+			await _capture(n)
+		"hatch":
+			ex.camera.zoom = Vector2(2, 2)
+			var hx: float = ex.HATCH_X
+			p.global_position = Vector2(hx + 70.0, ex.floor_y(hx + 70.0) - 1)
+			p.face(-1.0)
+			await _frames(10)
+			print("[shot] hatch open (far): ", ex.hatch.is_open)
+			await _capture(0)
+			p.global_position = Vector2(hx + 30.0, ex.floor_y(hx + 30.0) - 1)
+			await _frames(10)
+			print("[shot] hatch open (in reach): ", ex.hatch.is_open)
+			await _capture(1)
+			p.global_position = Vector2(hx, ex.floor_y(hx) - 1)
+			await _frames(10)
+			await _capture(2)
+			ex.hatch.hold_open()
+			p.frozen = true
+			p.climb_into(Vector2(hx, ex.hatch.global_position.y - 1.0), ex.CLIMB_DEPTH, ex.CLIMB_TIME)
+			await _frames(int(ex.CLIMB_TIME * 30))
+			await _capture(3)
+
+# First column right of the hatch zone with `n` flat columns and no tree or crate near.
+func _flat_spot(n: int) -> int:
+	var blocked := []
+	for t in get_tree().get_nodes_in_group("trees"):
+		blocked.append(t.position.x)
+	for c in ex.crates.get_children():
+		blocked.append(c.position.x)
+	for col in range(ex.HATCH_COL + 20, ex.COLS - n - 2):
+		var ok := true
+		for k in n:
+			if ex.surface_rows[col + k] != ex.surface_rows[col]:
+				ok = false
+				break
+		for bx in blocked:
+			if bx > col * 16.0 - 48.0 and bx < (col + n) * 16.0 + 48.0:
+				ok = false
+		if ok:
+			return col
+	return ex.HATCH_COL + 30

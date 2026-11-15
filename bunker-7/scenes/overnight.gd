@@ -1,5 +1,5 @@
 extends Control
-# Overnight summary: what changed during the night (GameState.last_night_summary). Continue -> morning.
+# Overnight summary: what changed during the night (GameState.last_night_summary). Continue -> the bunker (at the cot).
 
 func _ready() -> void:
 	UIKit.backdrop(self, "characters_clean/game_over", UIKit.BG, 0.3)   # the bunker at night
@@ -13,5 +13,5 @@ func _ready() -> void:
 		box.add_child(l)
 	var go := UIKit.button("Continue", Vector2(140, 24))
 	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	go.pressed.connect(GameState.go_to.bind("res://scenes/morning.tscn"))
+	go.pressed.connect(GameState.start_day)
 	box.add_child(go)

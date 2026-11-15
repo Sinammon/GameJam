@@ -2,7 +2,7 @@
 
 ## Open and run
 1. Godot 4.7: Project Manager > Import > pick `bunker-7/project.godot`.
-2. Press F5. The main scene is `res://scenes/expedition.tscn` (set in project.godot).
+2. Press F5. The main scene is `res://scenes/main_menu.tscn`; a new game opens the walkable bunker (`scenes/bunker.tscn`).
 3. Headless check (exit 0 = all PASS):
    `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_expedition.gd`
    It swaps GameState for a recorder (`tools/fake_game_state.gd`) and drives the player with real key events:
@@ -18,8 +18,20 @@
    (also `shot_light_hatch.json`, `shot_light_depot.json`; quality full/simple/off).
 7. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
    (also `shot_tree_fall.json`, `shot_hole.json`, `shot_chop.json`, `shot_zombie.json`, `shot_ore.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
+8. Art V3 captures: `shot_zombie_death.json`, `shot_hud.json`, `shot_hatch.json`, `shot_tutorial.json` (same command). Each also saves
+   its own numbered captures at exact moments (`user://shot_<mode>_<n>.png`: death frames, geiger levels 0-4 + backpack grid,
+   hatch closed/open/climbing, all 7 tutorial slides).
+9. Walkable bunker test (real GameState; new game + tutorial, every station, build once, unlock once, backpack tiers 1-4,
+   sleep -> overnight -> bunker, ladder -> expedition, hatch -> bunker with the stock banked once, death -> scar pick -> bunker,
+   Esc closing popups without the pause menu):
+   `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_bunker.gd`
+10. Bunker screenshots: `shot_bunker_overview.json`, `shot_bunker_ladder.json` (climbing down the shaft), `shot_bunker_popup.json`
+   (utility workbench), `shot_bunker_upgrade.json` (upgrade bench), `shot_bunker_door.json` (locked door), same command as 7.
 
 ## Controls
+- Bunker: A/D walk, E uses the station you stand at (a key box with a label shows above it), Enter / click presses the
+  focused popup button, Esc or E closes a popup (never the pause menu at the same time), Esc otherwise pauses.
+  E at the foot of the ladder climbs up to the expedition (once a day).
 - Move: A/D or Left/Right. Jump: W, Up or Space. Interact: E.
 - Hotbar: 1-5 or mouse wheel (axe, pickaxe, flashlight, canteen, medkit). Left click uses the tool. Tab: backpack grid. Esc: pause menu.
 - Axe: chop dead trees (logs = wood), hit zombies lightly. Pickaxe: dig the block under the mouse / in front / under you, hit zombies harder. Swings aim at the mouse side (or where you face), one every 0.4 s.
@@ -29,6 +41,11 @@
 - Lights: Esc > Settings > Lights (Full, Simple, Off), applied at once. Hotbar 3 (flashlight) shines a beam where you face. See `V2_NOTES.md` Phase 3.
 
 ## How it plays
+- Day loop: wake at the cot in the bunker (day banner) -> walk to the ladder, E -> expedition -> E in the hatch banks and
+  climbs down -> bunker (stock banner) -> build / unlock / upgrade the backpack -> cot, Sleep -> overnight summary
+  (maybe a night event first) -> next day at the cot. Death outside -> scar pick -> night -> cot. See `V2_NOTES.md` Phase 4.
+- Backpack: carry = 12/16/20/24 by tier (upgrade bench in the bedroom; costs `GameState.BACKPACK_COSTS`) + 4 with the
+  Storage Room + 2 with Steady Hands.
 - World: 4800 px (10 screens), hatch in the middle (x=2408). Zones mirrored: depot | market | suburb | HATCH | suburb | market | depot. See `V2_NOTES.md`.
 - Radiation fills while you are outside the hatch: 0.8%/s next to it up to 2.8%/s at either edge, times `get_radiation_multiplier()`. Walking straight to a farthest crate (2350 px away, either side) and back takes about 49 s and costs about 87% on Normal; on Hard (x1.5) you arrive home losing hearts. Warnings (message + green vignette pulse) at 60% and 85%; a go-home arrow shows when you are more than 1.5 screens away (or off-screen at 60%+). Radiation stops counting once you bank or start dying.
 - Health: 10 half-hearts (or `get_max_health()`). At 100% radiation you lose 1 half-heart at once and then every 2 s (not in the hatch). At 0 the player collapses (0.9 s), the HUD says why, the screen fades to black (1 s + 0.8 s), then `player_died(items, position)` is called once, with what was carried at the moment of death.
@@ -53,7 +70,7 @@ Call: bank_loot(items), player_died(items, position). Each is called at most onc
 `autoload/game_state.gd` should provide (names exact, return types as shown):
 - `get_radiation_multiplier() -> float` (difficulty rad x Thick Skin x storm, 1.0 normal)
 - `get_loot_multiplier() -> float`
-- `get_carry_limit() -> int` (12, 16 with the storage room)
+- `get_carry_limit() -> int` (backpack tier 12/16/20/24, +4 storage room, +2 Steady Hands)
 - `get_move_speed_bonus() -> float` (0.1 = +10%, Light Feet)
 - `get_dig_speed_bonus() -> float`
 - `has_air_filter() -> bool`, `has_reinforced_door() -> bool`
