@@ -7,12 +7,25 @@ Nothing in this list was hand-played. The V3 work was stopped part-way, so the p
 - **Audio files:** 47 synthesized .wav files in `audio/` (5.6 MB) plus the generator `tools/synth_audio.py`. Nobody has listened to them. Names:
   music_menu, music_bunker, music_expedition, music_danger, music_gameover, music_ending, amb_wind, geiger_1..3, heartbeat, rad_warning, footstep_1..2, jump, land, swing, axe_chop, tree_fall, pickaxe_hit, rock_break, pickup, drop, zombie_growl_1..2, zombie_hit, zombie_death, player_hurt, player_death, hatch_open, hatch_close, ladder_climb, door_open, build_ok, build_fail, eat, drink, sleep, flashlight_toggle, popup_open, popup_close, slot_select, day_start, ui_click, ui_hover, ui_back, ui_confirm.
 
-## Audio: NOT wired in yet (todo)
-- Create `autoload/audio.gd` (register in project.godot): Music/SFX buses, `play_sfx(name, volume_db, pitch_var)` with a small AudioStreamPlayer pool (never crash on a missing name), `play_music(name, fade)` with crossfade, `stop_music`.
-- Music/SFX volume sliders in the pause menu options, saved in settings (scenes/settings_store.gd).
-- Hook sounds in: player (step/jump/land), tree/rock/chips (chop, fall, pick, break), zombie (growl/hit/death), pickup, hatch, bunker (ladder, door, build ok/fail, sleep), inventory (slot select, eat, drink), HUD/radiation (geiger rate by radiation level, warning beep, heartbeat at low health), UI (click/hover/back/confirm), scene music switches (menu, bunker, expedition, danger, game over, ending).
-- Web: first sound only after a user click; check the Web export still works. Listen to every file and fix loops/volume.
-- Add `tools/test_audio.gd` (files exist, unknown name does not crash, buses exist).
+## Audio: DONE (branch `v3-audio`)
+- `autoload/audio.gd` (autoload "Audio"): Music/SFX buses (created if missing), `play_sfx(name, volume_db, pitch_var)`
+  with a 10-voice pool, `play_music(name, fade)` crossfade (same track = no restart), `stop_music`, ambience,
+  per-sound base volumes (`BASE_DB`), volume get/set saved through SettingsStore. Music follows the scene
+  (`SCENE_MUSIC`): menu, bunker (also morning/overnight/night event/scar pick), expedition (+ amb_wind; crossfades
+  to music_danger at >=85% radiation, a zombie within 140 px, or crater at >=60% / first 8 s), game over, ending.
+- Game code calls `Sfx.play(...)` (scenes/sfx.gd, like GSBridge) so tools/ scripts compile without the autoload.
+- Hooks: player steps/jump/land/hurt/death/ladder, bunker walker steps + ladder, swing, axe chop, tree fall, pickaxe
+  hit, rock break, zombie growl/hit/death, rat hit, pickup/drop, crate/source loot, hatch open/close, day start,
+  sleep, build/repair/upgrade ok/fail, unlock door, locker eat/drink, expedition eat/drink (Q/R, canteen, medkit),
+  slot select / flashlight toggle, backpack + bunker popups + pause menu open/close, UI hover/click on every
+  `UIKit.button` (`UIKit.set_click_sfx(b, "ui_back" | "ui_confirm" | "")`), geiger rate by radiation, rad_warning
+  beep per warning level, heartbeat at <=30% health.
+- Web: until the first click/key, music is queued and SFX skipped. Headless (Dummy driver): `Audio.silent`, nothing
+  started (the Dummy driver never mixes, so a started sound leaks at exit). Verified: Web export packs all 47 sounds
+  (QOA, ~1.2 MB) and the font; index.pck 6.1 MB, zipped build 16 MB.
+- `tools/test_audio.gd` covers files, loop flags, buses, unknown names, volume persistence, crossfade, danger switch.
+- Remaining: listen in a real browser / desktop and tune `BASE_DB`; music_gameover is a one-shot (no loop, on purpose);
+  no zombie footsteps or rat squeak file (rats reuse zombie_hit, quieter).
 
 ## Gameplay: DONE (branch `v3-finish`, ported from the old `v3-gameplay` data layer)
 Tests: `tools/test_survival.gd` (new) plus all older suites pass. Balance was checked with API
