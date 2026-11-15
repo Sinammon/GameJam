@@ -493,12 +493,8 @@ func _on_bank_requested(p: Node) -> void:
 
 # The survivor climbs down the hatch ladder while the screen fades to black.
 func _climb_down(p: Node) -> void:
-	var open_lid := Art.sprite(hatch, "res://art/world_clean/obj_hatch_open.png", 3.0)
-	if open_lid:
-		open_lid.z_index = 1
-		for n in hatch.get_children():
-			if n is Sprite2D and n != open_lid:
-				n.visible = false
+	if hatch.has_method("hold_open"):
+		hatch.hold_open()   # obj_hatch_open.png, drawn over the survivor
 	if p.has_method("climb_into"):
 		p.climb_into(Vector2(hatch.global_position.x, hatch.global_position.y - 1.0), CLIMB_DEPTH, CLIMB_TIME)
 	var tw := create_tween()
