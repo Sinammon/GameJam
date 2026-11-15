@@ -78,6 +78,17 @@ static func max_health() -> int:
 			return clampi(int(_num(m, 10)), 2, 40)
 	return 10
 
+# Current day (1..), for zombie numbers. get_day() if it exists, else the `day`
+# variable, else 1. Quiet (no warning) when missing.
+static func day() -> int:
+	var gs := _gs()
+	if gs == null:
+		return 1
+	var v: Variant = gs.call("get_day") if gs.has_method("get_day") else gs.get("day")
+	if v is int or v is float:
+		return clampi(int(v), 1, 99)
+	return 1
+
 # Always returns {} or {"items": {ITEM_KINDS: int}, "position": Vector2}.
 # A pack with nothing in it, or with garbage data, counts as no pack.
 static func last_stand_pack() -> Dictionary:
