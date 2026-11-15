@@ -48,3 +48,57 @@ Probe: `tools/probe_phase0.gd` (real GameState, Normal), run headless on the v1 
   `icon_tool_{axe,pickaxe,flashlight,canteen,medkit}.png`; optional sound `audio/sfx_rad_warning.{wav,ogg,mp3}`.
 - Measured (headless test): round trip hatch -> farthest crate -> hatch, either side: 24.6 s each way,
   87% radiation on Normal; on Hard (x1.5) it goes over 100% and you start losing hearts.
+
+## Phase 2: trees, mining, zombies (decisions and tuning)
+All tuning constants sit at the top of their script, under a "Tuning" comment.
+- **Tool swings** (`scenes/tool_swing.gd`, connected to `Inventory.tool_used`): one swing per `COOLDOWN` 0.4 s,
+  reach `REACH` 26 px (~1.5 tiles) in front. Aim = towards the mouse once the mouse has moved, else the facing
+  direction. Order: zombies in the swing box first, then (pickaxe) the block in reach, else a tree; (axe) a tree.
+  Damage: zombies axe 1 / pickaxe 2 (`ZOMBIE_DAMAGE`), trees axe 1 / pickaxe 0.34 (`TREE_DAMAGE`). Plays
+  `survivor_chop` (axe) / `survivor_mine` (pickaxe) if the frames exist, else a small white arc.
+  The player got `facing` and `face(dir)`; `use_tool(tool)` now only plays the swing animation.
+- **Trees** (`actors/tree.gd/.tscn`): placed by the expedition (`spawn_trees`) in the suburb and market only,
+  from `TREE_MIN_COL` 12 columns off the hatch, every 5-11 columns, never within 2 columns of a crate or the pack.
+  Seeded by day. Sizes (`SIZES`): small 3 hp / 1 log, medium 5 / 2, large 7 / 3 (market: more large ones). Logs x
+  loot multiplier (at least 1). Logs are `actors/pickup.gd` items: they fall to the ground, drift to the player
+  within 36 px and go into the backpack only if there is room (a full pack leaves them lying, "Backpack full!").
+  The ground under a tree can't be dug.
+- **Mining** (`scenes/mining.gd`): every block collides now (any block may become exposed); the old "deep fill
+  without collision" trick is gone. Rows: surface .. row 19 dirt/ores, row 20 bedrock (`BEDROCK_ROW`).
+  Block hp (`HP`): dirt/surface/planks/bones 3, scrap ore/pipe 4, concrete/toxic 5, circuits 6. Pickaxe damage =
+  1 x (1 + `dig_speed_bonus`), so Steady Hands +50% digs dirt in 2 hits. Crack overlay in 4 stages.
+  Drops (`DROPS`, x loot multiplier): dirt 8% scrap, scrap ore/pipe scrap, concrete concrete, circuit vein circuits,
+  planks wood, bones 25% scrap, toxic nothing (decor). Ores (`kind_for`): only 1-3 blocks under the surface (the
+  diggable depth), chance grows with depth and distance; suburb mostly planks, market concrete/pipes, depot scrap/
+  concrete/toxic; circuits only 2+ deep and more than 60% of the way out.
+  **Digging rule (so nobody gets stuck):** top-down only (you dig the top block of a column; the ground stays a
+  height map), at most `MAX_DIG_DEPTH` 4 below the natural surface, bedrock never breaks, protected columns
+  (hatch +-3 = spawn, crates +-1, pack +-1, trees) can't be dug, and a block is refused if afterwards some column
+  could no longer be left by steps of at most `MAX_CLIMB` 2 blocks up to an undug column (`escapable()`, a flood
+  fill over 300 columns). The player jumps ~2.7 blocks, so a 1-wide shaft can go 2 deep; deeper needs a staircase.
+  Refusals show a short message ("Too deep to dig here.", "Too steep: you couldn't climb back out.").
+  Target: column under the mouse (when aiming with the mouse), else the column in front, else under the feet,
+  each only within 34 px of the chest. Dug blocks get a dark back wall so holes read as holes.
+  The camera now follows the player down into holes (limit_bottom 270 on the surface, up to 336).
+- **Zombies** (`actors/zombie.gd/.tscn`): CharacterBody2D on collision layer 8, mask 1 (world only: passes
+  through the player and other zombies; hits are distance checks). HP 4. Wander 18 px/s, chase 60 px/s (player
+  100), sight 96 px (6 tiles), lose sight at 200 px. Attack within 18 px: 0.4 s windup (leans in), hits 1
+  half-heart via `player.take_damage(1, "zombie", pos)` if still within 24 px, 1 s cooldown. Hurt: knockback 90
+  px/s for 0.3 s. Dead: fall/fade 0.8 s, 30% drop of food or scrap. Hops 1-block steps (`STEP_JUMP`), can't climb
+  2 (they can fall into your holes). The hatch safe zone (96 px = 6 tiles) acts like a wall for them.
+- **Spawner** (`scenes/zombie_spawner.gd`): slots per side 2 suburb / 4 market / 6 depot, x(1 + 0.2 per day after
+  the first, max x2), via the new optional `GSBridge.day()` (`get_day()` or the `day` variable, default 1).
+  No slot within 224 px (14 tiles) of the hatch. A slot spawns only 260-560 px from the player (off-screen),
+  at most `CAP` 8 alive within 560 px; zombies more than 820 px away are removed (the slot waits again);
+  a killed zombie's slot comes back after 40 s. Checks run every 0.5 s (cheap on the web).
+- **HUD:** first zombie on screen -> one-time hint via `SettingsStore.hint_once("first_zombie")` (looked up by
+  class name, guarded; `hud.hint_once(id, text)`). Death by zombie uses reason "zombie" (DEATH_TEXT). Any non-
+  radiation hit shakes the camera (`expedition.shake`); landing a hit on a zombie shakes it lightly.
+- **Art hooks** (all optional, placeholders until then): `obj_trees.png` (6 objects on transparent background,
+  split by empty columns: tall, medium, short tree, stump, log, bush), `tiles_ore.png` and `tiles_crack.png`
+  (used as is at exactly 64x32 / 64x16, other sizes are read back and scaled), `fx_chips.png` (8 pieces split by
+  empty columns), `characters_clean/zombie_{walk,attack,death,hurt}_N.png`, `survivor_chop_N.png`.
+  Note: splitting/scaling needs a GPU readback (`Texture2D.get_image()`); if that fails on a browser, the
+  placeholder is used instead of crashing. Exact-size atlases avoid the readback entirely.
+- Tests switch zombies off with `expedition.zombies_enabled = false` before adding the scene (the timed walks in
+  `test_expedition.gd` would otherwise be interrupted); `tools/test_phase2.gd` covers the new systems.

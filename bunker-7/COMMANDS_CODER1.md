@@ -8,10 +8,16 @@
    It swaps GameState for a recorder (`tools/fake_game_state.gd`) and drives the player with real key events:
    walking, jumping, crates, carry limit, the pack, banking once, dying once, round trips to the farthest crate on
    both sides, health drain above 100%, damage and death reason, hotbar/backpack keys, Esc pause, radiation both ways.
+   (Zombies are switched off there: `ex.zombies_enabled = false`.)
+4. Phase 2 test (trees, carry limit, mining, dig rules, climbing out of holes, zombies, spawner, a random soak):
+   `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_phase2.gd`
+5. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
+   (also `shot_tree_fall.json`, `shot_hole.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
 
 ## Controls
 - Move: A/D or Left/Right. Jump: W, Up or Space. Interact: E.
 - Hotbar: 1-5 or mouse wheel (axe, pickaxe, flashlight, canteen, medkit). Left click uses the tool. Tab: backpack grid. Esc: pause menu.
+- Axe: chop dead trees (logs = wood), hit zombies lightly. Pickaxe: dig the block under the mouse / in front / under you, hit zombies harder. Swings aim at the mouse side (or where you face), one every 0.4 s.
 - E near a crate opens it. E inside the hatch (middle of the map) banks your loot.
 - E in the hatch with an empty backpack asks first ("Press E again to go inside"); a second E within 2 s goes home empty-handed. This stops an accidental E at spawn ending the day.
 - Debug builds only (editor F5 / debug export): F1 fills radiation to 100% (to test the health drain).
@@ -23,6 +29,9 @@
 - Crates give 2-4 random wood/concrete/scrap (times loot multiplier). Circuits only in crates in the last 30% of the map (35% chance each, 3 such crates). Crates also hold supplies: 0-1 water and 0-1 food each (0-2 food in the suburb third, 0-2 water in the market third), times loot multiplier. Water and food count toward the carry limit. A full backpack leaves the leftover loot in the crate.
 - Carry limit comes from `get_carry_limit()` (counts items). HUD shows carried/limit by the backpack icon; Tab shows the grid (stacks per material, locked slots padlocked).
 - Last Stand Pack: if `get_last_stand_pack()` has items, a yellow backpack sits on the ground at that x. E takes what fits, rarest first (circuits, scrap, water, food, concrete, wood). The rest stays in the pack for this expedition only; when the expedition ends GameState drops the pack. Dying again makes what you carry the new pack.
+- Trees: suburb and market only. 3/5/7 axe hits for 1/2/3 logs (x loot multiplier); a stump stays. Logs fall to the ground and are picked up by walking over them if the backpack has room.
+- Mining: top block of a column only, at most 4 deep, bedrock never breaks, never under the hatch/crates/trees/pack, and never so steep that you couldn't climb out (steps of at most 2 blocks). Ores 1-3 blocks down: planks (wood), scrap ore / pipes (scrap), concrete, circuit veins (deep and far out only). Dirt sometimes gives scrap.
+- Zombies: none within 14 tiles of the hatch at spawn and they never enter the 6-tile safe zone around it. 2/4/6 per side in suburb/market/depot (more each day), at most 8 near you, spawned off-screen. Chase at 60 px/s (you run 100), 0.4 s windup then 1 half-heart. Pickaxe kills in 2 hits, axe in 4. 30% drop food or scrap. Death by zombie shows "A zombie got you."
 - When several things are in reach, E uses the nearest one that still has something in it; the hatch always comes last, so loot lying in the hatch is picked up before banking.
 - After `bank_loot` the player is frozen until GameState changes the scene. The scene never changes scenes itself.
 
@@ -31,7 +40,7 @@ Survivor (`actors/player.gd`, SpriteFrames built in code from `art/characters_cl
 
 ## Contract usage
 All GameState access goes through `scenes/gs_bridge.gd` (`GSBridge`). Every call is guarded with `has_method`, so a missing function logs one warning and uses the default (radiation x1, loot x1, carry 12, speed +0, no pack) instead of crashing. Return values are type-checked and items dicts are cleaned to the six keys (wood, concrete, scrap, circuits, water, food) as ints.
-Read: get_radiation_multiplier, get_loot_multiplier, get_carry_limit, get_move_speed_bonus, get_last_stand_pack (read once when the expedition starts). Optional V2 reads (quiet defaults if missing): get_backpack_tier (1), get_max_health / max_health (10). Not used yet: get_dig_speed_bonus (no digging yet), has_air_filter, has_reinforced_door (bunker-side effects).
+Read: get_radiation_multiplier, get_loot_multiplier, get_carry_limit, get_move_speed_bonus, get_last_stand_pack (read once when the expedition starts). Optional V2 reads (quiet defaults if missing): get_backpack_tier (1), get_max_health / max_health (10). get_dig_speed_bonus (pickaxe damage x (1 + bonus)). Optional: day via get_day() or the `day` variable (zombie numbers, default 1). Not used yet: has_air_filter, has_reinforced_door (bunker-side effects).
 Call: bank_loot(items), player_died(items, position). Each is called at most once per expedition, never both.
 
 ## For Coder 2
