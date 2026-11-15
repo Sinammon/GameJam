@@ -21,6 +21,7 @@ var carry_limit := 12
 var death_reason := ""         # "radiation", "zombie", ... kept for the HUD death line
 var health: Node = null        # actors/health.gd, created in _ready
 var _stun_left := 0.0          # > 0 after knockback: input doesn't steer
+var facing := 1.0              # -1 left, +1 right (last walking direction or swing aim)
 
 const HealthScript := preload("res://actors/health.gd")
 const KNOCKBACK_SPEED := 170.0
@@ -34,7 +35,10 @@ const ART_DIR := "res://art/characters_clean/survivor_%s_%d.png"
 const ANIMS := {
 	"idle": [4, 4.0, true], "walk": [4, 8.0, true], "jump": [4, 0.0, false],
 	"mine": [4, 10.0, false], "collapse": [4, 4.5, false], "hurt": [2, 8.0, false],
+	"chop": [4, 10.0, false],
 }
+# tool -> swing animation (played by use_tool if the frames exist)
+const TOOL_ANIMS := {"axe": "chop", "pickaxe": "mine"}
 const COLLAPSE_TIME := 0.9     # seconds before collapse_done (art or not)
 
 var sprite: AnimatedSprite2D = null   # null = placeholder rectangle
@@ -95,8 +99,7 @@ func _process(delta: float) -> void:
 	if sprite == null or dead:
 		return
 	_action_left = maxf(0.0, _action_left - delta)
-	if velocity.x != 0.0 and _stun_left <= 0.0:
-		sprite.flip_h = velocity.x < 0.0
+	sprite.flip_h = facing < 0.0
 	if not is_on_floor() and sprite.sprite_frames.has_animation("jump"):
 		_play("jump")
 		sprite.pause()
@@ -111,22 +114,27 @@ func _process(delta: float) -> void:
 	if not sprite.is_playing() and not sprite.animation in ["jump", "mine", "hurt"]:
 		sprite.play()
 
-# Short pickaxe swing when something is looted.
-func play_action(anim := "mine", time := 0.4) -> void:
+# Short pickaxe swing when something is looted. Returns false without art.
+func play_action(anim := "mine", time := 0.4) -> bool:
 	if sprite and sprite.sprite_frames.has_animation(anim):
 		_action_left = time
 		_action_anim = anim
 		_play(anim)
 		sprite.set_frame_and_progress(0, 0.0)
 		sprite.play(anim)
+		return true
+	return false
 
-# Hotbar tool used (left click). Axe/pickaxe swing; trees, mining and combat
-# connect to Inventory.tool_used for the actual effect.
-func use_tool(tool_id: String) -> void:
-	if dead or frozen:
-		return
-	if tool_id in ["axe", "pickaxe"]:
-		play_action()
+# Swing animation for a tool (scenes/tool_swing.gd decides what it hits).
+# Returns false if there is no animation (the swing then draws an arc).
+func use_tool(tool_id: String) -> bool:
+	if dead or frozen or not TOOL_ANIMS.has(tool_id):
+		return false
+	return play_action(TOOL_ANIMS[tool_id], 0.35)
+
+func face(dir: float) -> void:
+	if dir != 0.0:
+		facing = signf(dir)
 
 # --- health ------------------------------------------------------------------
 
@@ -183,6 +191,7 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
 	velocity.x = Input.get_axis("move_left", "move_right") * speed
+	face(velocity.x)
 	move_and_slide()
 
 func _unhandled_input(event: InputEvent) -> void:

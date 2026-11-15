@@ -86,6 +86,26 @@ func show_message(text: String) -> void:
 func set_hint(text: String) -> void:
 	hint_label.text = text
 
+# One-time in-world hint (remembered in the settings file through SettingsStore,
+# if that class exists; without it the hint shows once per expedition).
+# Returns true if it was shown.
+var _hints_local := {}
+func hint_once(id: String, text: String) -> bool:
+	var first := not _hints_local.has(id)
+	_hints_local[id] = true
+	var store: Variant = _settings_store()
+	if store != null:
+		first = store.hint_once(id)
+	if first:
+		show_message(text)
+	return first
+
+static func _settings_store() -> Variant:
+	for c in ProjectSettings.get_global_class_list():
+		if c["class"] == "SettingsStore":
+			return load(c["path"])
+	return null
+
 # Icon + one line over the fade, saying why you died.
 func show_death(reason: String) -> void:
 	hint_label.text = ""

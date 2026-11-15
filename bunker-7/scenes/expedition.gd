@@ -2,7 +2,9 @@ extends Node2D
 # The outside level: tile world, hatch, crates, radiation, HUD hookup.
 # This scene never changes scenes. It only calls GameState.bank_loot / player_died.
 # Systems live in their own scripts: radiation (scenes/radiation.gd), health
-# (actors/health.gd), inventory (scenes/inventory.gd), HUD (scenes/hud.tscn).
+# (actors/health.gd), inventory (scenes/inventory.gd), HUD (scenes/hud.tscn),
+# digging (scenes/mining.gd), tool swings (scenes/tool_swing.gd), zombies
+# (actors/zombie.gd + scenes/zombie_spawner.gd), trees (actors/tree.gd).
 #
 # Layout (V2): 10 screens wide, the hatch in the middle, zones mirrored:
 #   depot | market | suburb | HATCH | suburb | market | depot
@@ -12,7 +14,9 @@ const TILE := 16
 const COLS := 300            # 300 * 16 = 4800 px = 10 screens of 480
 const WORLD_W := COLS * TILE
 const BASE_ROW := 14         # ground surface row on flat land (y = 224)
-const BOTTOM_ROW := 19       # fill dirt down to here
+const BOTTOM_ROW := 21       # fill the ground down to here (exclusive); the last row is bedrock
+const CAM_BOTTOM_MIN := 270  # camera bottom on the surface (one screen tall) ..
+const CAM_BOTTOM_MAX := BOTTOM_ROW * 16   # .. follows the player down into holes
 const HATCH_COL := 150
 const HATCH_X := 2408.0      # centre of column 150 (the middle of the map)
 const HALF_W := 2400.0       # hatch -> edge, the "how far out" scale (0..1)
@@ -29,6 +33,14 @@ const CRATE_XS := [2640, 2140, 2910, 1860, 3240, 1520, 3560, 1180, 3900, 820, 42
 const CrateScript := preload("res://actors/crate.gd")
 const RadiationScript := preload("res://scenes/radiation.gd")
 const InventoryScript := preload("res://scenes/inventory.gd")
+const MiningScript := preload("res://scenes/mining.gd")
+const SwingScript := preload("res://scenes/tool_swing.gd")
+const SpawnerScript := preload("res://scenes/zombie_spawner.gd")
+const TREE_SCENE := "res://actors/tree.tscn"
+# Trees: dead trees on the surface of the suburb and market (not the depot),
+# never within TREE_MIN_COL columns of the hatch or next to a crate.
+const TREE_MIN_COL := 12
+const TREE_GAP := [5, 11]    # columns between trees (random in this range)
 
 const PAUSE_MENU := "res://scenes/pause_menu.tscn"
 const RAD_LINES := ["Radiation rising. Head home.", "Radiation high! Go home now!", "Radiation sickness! Losing health!"]
@@ -44,10 +56,15 @@ var rad_mult := 1.0
 var inventory: Node = null
 var warning_sound: AudioStreamPlayer = null   # optional: audio/sfx_rad_warning.* if present
 var pause_menu: Node = null  # scenes/pause_menu.tscn (Esc), if present
-var surface_rows: Array[int] = []
-var use_art_tiles := false   # false = placeholder tileset from the scene
+var surface_rows: Array[int] = []   # natural surface; mining.floor_rows is the current one
+var use_art_tiles := false   # false = drawn placeholder tiles (tiles_outside.png missing)
+var zombies_enabled := true  # tests switch this off before adding the scene
+var mining: Node2D = null
+var swing: Node2D = null
+var spawner: Node = null
+var _shake_tween: Tween
+var last_stand_pack: Area2D = null
 
-const TILES_TEX := "res://art/world_clean/tiles_outside.png"
 # tiles_outside.png atlas (4x2)
 const T_DIRT := Vector2i(0, 0)
 const T_GRASS := Vector2i(1, 0)
@@ -63,23 +80,43 @@ const AREA_COLS := 50        # per side: suburb, market, depot (50 columns = 800
 @onready var crates: Node2D = $Crates
 @onready var hud: CanvasLayer = $HUD
 @onready var fade: ColorRect = $HUD/Fade
+@onready var camera: Camera2D = $Player/Camera2D
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.35, 0.4, 0.38))
 	rad_mult = GSBridge.radiation_multiplier()
 	build_background()
+	mining = MiningScript.new()
+	mining.name = "Mining"
+	mining.ground = ground
+	add_child(mining)
 	use_art_tiles = build_tileset()
 	build_terrain()
+	mining.setup(ground, surface_rows, player, GSBridge.loot_multiplier(), GSBridge.dig_speed_bonus())
 	hatch.position = Vector2(HATCH_X, surface_y(HATCH_X))
 	player.position = hatch.position + Vector2(0, -2)
+	mining.protect_x(HATCH_X, 3)   # the hatch and the spawn can't be dug out
 	spawn_crates()
 	spawn_last_stand_pack()
+	spawn_trees()
 	inventory = InventoryScript.new()
 	inventory.name = "Inventory"
 	add_child(inventory)
 	inventory.setup(player)
-	inventory.tool_used.connect(player.use_tool)
+	swing = SwingScript.new()
+	swing.name = "ToolSwing"
+	add_child(swing)
+	swing.setup(self)
+	inventory.tool_used.connect(swing.use)
+	spawner = SpawnerScript.new()
+	spawner.name = "ZombieSpawner"
+	add_child(spawner)
+	spawner.enabled = zombies_enabled
+	spawner.setup(self)
+	spawner.first_seen.connect(func() -> void: hud.hint_once("first_zombie", "Zombie! Hit it with the pickaxe or axe (left click), or outrun it."))
 	hud.setup(player, inventory, rad, HATCH_X)
+	player.hurt.connect(func(_a: int, src: String) -> void: if src != "radiation": shake(3.0, 0.2))
+	camera.limit_smoothed = true
 	hatch.bank_requested.connect(_on_bank_requested)
 	player.message.connect(show_message)
 	player.out_of_health.connect(_die)
@@ -151,31 +188,11 @@ func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Col
 
 # --- terrain ---------------------------------------------------------------
 
-# Builds a TileSet from tiles_outside.png. Alternative 0 of each tile has
-# collision, alternative 1 has none (deep fill). Returns false if the art is missing.
+# Ground TileSet (built by mining.gd): tiles_outside.png + tiles_ore.png, or drawn
+# placeholders. Every block collides (blocks can be dug out, so any may become
+# exposed). Returns false if tiles_outside.png is missing.
 func build_tileset() -> bool:
-	var tex := Art.texture(TILES_TEX)
-	if tex == null:
-		return false
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(TILE, TILE)
-	ts.add_physics_layer()
-	ts.set_physics_layer_collision_layer(0, 1)
-	var src := TileSetAtlasSource.new()
-	src.texture = tex
-	src.texture_region_size = Vector2i(TILE, TILE)
-	var square := PackedVector2Array([Vector2(-8, -8), Vector2(8, -8), Vector2(8, 8), Vector2(-8, 8)])
-	ts.add_source(src, 0)
-	for y in 2:
-		for x in 4:
-			var c := Vector2i(x, y)
-			src.create_tile(c)
-			src.create_alternative_tile(c, 1)
-			var td := src.get_tile_data(c, 0)
-			td.add_collision_polygon(0)
-			td.set_collision_polygon_points(0, 0, square)
-	ground.tile_set = ts
-	return true
+	return mining.build_tileset()
 
 # Which art tile goes where: grass in the suburb, gravel/asphalt at the market,
 # scrap and toxic dirt at the depot; dirt with a few stones below.
@@ -196,23 +213,53 @@ func build_terrain() -> void:
 			var slope: float = float(hill[1]) / float(hill[2])
 			h = maxi(h, int(hill[2] - absf(x - (HATCH_COL + hill[0])) / slope))
 		surface_rows.append(BASE_ROW - maxi(h, 0))
+	# Blocks: surface, dirt with ores (mining.kind_for: deeper and farther = richer), bedrock.
+	mining.rng.seed = hash("bunker7") + GSBridge.day()
 	for x in COLS:
-		var left := surface_rows[maxi(x - 1, 0)]
-		var right := surface_rows[mini(x + 1, COLS - 1)]
-		var solid_to := maxi(surface_rows[x], maxi(left, right) - 1)
 		for y in range(surface_rows[x], BOTTOM_ROW):
-			# Tile 0 (atlas 0,0) = solid ground with collision, tile 1 = dirt (no collision).
-			# Surface and exposed hill sides are solid so they can't be walked through.
-			var solid := y <= solid_to
-			if use_art_tiles:
-				ground.set_cell(Vector2i(x, y), 0, art_tile(x, y), 0 if solid else 1)
-			else:
-				ground.set_cell(Vector2i(x, y), 0, Vector2i(0, 0) if solid else Vector2i(1, 0))
+			var kind := "bedrock"
+			if y < BOTTOM_ROW - 1:
+				kind = mining.kind_for(y - surface_rows[x], distance_frac(x * TILE + 8.0), area_of(x))
+			mining.place(Vector2i(x, y), kind, art_tile(x, y))
 
-# y (px) of the top of the ground at world x
+# y (px) of the top of the natural ground at world x (before any digging)
 func surface_y(x: float) -> float:
 	var col := clampi(int(x / TILE), 0, COLS - 1)
 	return float(surface_rows[col] * TILE)
+
+# y (px) of the top of the ground now (holes included)
+func floor_y(x: float) -> float:
+	return mining.floor_y(x)
+
+# --- trees -------------------------------------------------------------------------
+
+func spawn_trees() -> void:
+	var scene: PackedScene = load(TREE_SCENE)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("trees") + GSBridge.day()
+	var mult := GSBridge.loot_multiplier()
+	for side in [-1, 1]:
+		var off := TREE_MIN_COL + rng.randi_range(0, 3)
+		while off < AREA_COLS * 2 - 2:   # suburb + market only
+			var col: int = HATCH_COL + side * off
+			off += rng.randi_range(TREE_GAP[0], TREE_GAP[1])
+			if _near_crate(col):
+				continue
+			var big := area_of(col) == 1
+			var roll := rng.randf()
+			var size := "large" if roll < (0.45 if big else 0.15) else ("medium" if roll < 0.7 else "small")
+			var t: Node2D = scene.instantiate()
+			var x := col * TILE + 8.0
+			t.position = Vector2(x, surface_y(x))
+			t.setup(size, player, floor_y, mult)
+			add_child(t)
+			mining.protect_col(col)   # no digging under a tree
+
+func _near_crate(col: int) -> bool:
+	for cx in CRATE_XS:
+		if absi(int(cx / TILE) - col) <= 2:
+			return true
+	return last_stand_pack != null and absi(int(last_stand_pack.position.x / TILE) - col) <= 2
 
 # --- crates & pack ---------------------------------------------------------
 
@@ -224,6 +271,7 @@ func spawn_crates() -> void:
 		c.position = Vector2(x, surface_y(x))
 		crates.add_child(c)
 		c.setup(distance_frac(x), loot_mult)
+		mining.protect_x(x, 1)
 
 # The backpack left where the player died last time. Gives items back when E is pressed.
 # Partial pickup rule: take what fits (rarest first, like crates); the rest stays
@@ -250,6 +298,7 @@ func spawn_last_stand_pack() -> void:
 	if data.is_empty():
 		return
 	var pack := Pack.new()
+	last_stand_pack = pack
 	pack.name = "LastStandPack"
 	pack.add_to_group("last_stand_pack")
 	for k in data["items"]:
@@ -274,6 +323,7 @@ func spawn_last_stand_pack() -> void:
 		glow.size = Vector2(10, 12)
 		pack.add_child(glow)
 	add_child(pack)
+	mining.protect_x(x, 1)
 	if art:   # gentle pulse so it reads as "your stuff"
 		var tw := pack.create_tween().set_loops()
 		tw.tween_property(art, "modulate", Color(1.4, 1.3, 0.8), 0.6)
@@ -288,6 +338,19 @@ func _process(delta: float) -> void:
 		return   # no radiation during the death fade or after banking
 	rad.tick(delta, distance_frac(player.position.x), rad_mult, hatch.player_inside)
 	hud.set_hint("E: bank loot" if hatch.player_inside else "")
+	# the camera follows the player down into holes, else shows one screen from the top
+	camera.limit_bottom = clampi(int(player.global_position.y) + 46, CAM_BOTTOM_MIN, CAM_BOTTOM_MAX)
+
+# Small camera shake (getting hit, landing a hit).
+func shake(strength: float, time: float) -> void:
+	if _shake_tween:
+		_shake_tween.kill()
+	_shake_tween = create_tween()
+	var steps := maxi(2, int(time / 0.03))
+	for i in steps:
+		var k := strength * (1.0 - float(i) / steps)
+		_shake_tween.tween_property(camera, "offset", Vector2(randf_range(-k, k), randf_range(-k, k)), 0.03)
+	_shake_tween.tween_property(camera, "offset", Vector2.ZERO, 0.03)
 
 func _on_rad_drain() -> void:
 	if not ended:
