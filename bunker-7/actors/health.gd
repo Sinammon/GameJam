@@ -8,7 +8,7 @@ signal depleted(source: String)
 
 const INVULN_TIME := 0.6        # seconds of i-frames after a hit
 # Damage from these ignores i-frames (a steady drain must never be swallowed by a hit).
-const IGNORES_INVULN := ["radiation"]
+const IGNORES_INVULN := ["radiation", "hunger", "thirst", "sickness"]
 
 var max_hp := 10
 var hp := 10
