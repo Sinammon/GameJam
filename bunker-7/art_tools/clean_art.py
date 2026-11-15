@@ -166,7 +166,7 @@ WORLD = {
 # (x0, y0, x1, y1; y uses the same unit), so drips / steam / drops stay with their owner and a
 # neighbour never leaks in. Spec per part:
 #   ("tile",)        16x16 ground tile, cut inside its dark outline so it repeats seamlessly
-#   ("ceil",)        a ceiling strip: inside the outline, 16 px wide, at the top of a 16x16 cell
+#   ("ceil",)        a ceiling strip (rock with drips): inside the outline, stretched to fill 16x16
 #   ("w", n)/("h", n) width / height in px (aspect kept), ("box", w, h) fit inside, ("f", k) raw px * k
 # and optional extras: kill_purple=True drops painted light rays (purple over magenta).
 # "atlas" builds a 4x2 sheet in the tiles_outside.png layout (scenes/expedition.gd art_tile:
@@ -179,7 +179,8 @@ CHARS.update({
     # 4 run frames, same height rule as the old rat (13 px for the tallest frame).
     "Rats.png": dict(kind="sheet", out="rat_run", n=4, anim=True, h=13),
 })
-MINE_UNDER = (0.78, 0.74, 0.74)
+MINE_UNDER = (0.78, 0.74, 0.74)   # the ground under the surface row a little darker, so the floor reads
+CRATER_UNDER = (0.8, 0.8, 0.8)
 WORLD.update({
     "Mine.png":               dict(kind="full", out="bg_mine", size=(480, 270)),
     "BombCraterBackDrop.png": dict(kind="full", out="bg_crater", size=(480, 270)),
@@ -209,8 +210,8 @@ WORLD.update({
         ("obj_crater_exit",    (385, 405, 585, 640), ("w", 30)),
         ("obj_ash_pile",       (675, 495, 930, 636), ("w", 28)),
     ], atlas=("tiles_crater", [
-        ("tile_crater_under", None), ("tile_crater_ground", None), ("tile_crater_under", "flip"), ("tile_crater_ground", "flip"),
-        ("tile_crater_under", None), ("tile_crater_ground", "flip"), ("tile_crater_ground", None), ("tile_crater_ground", None),
+        ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", None), ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", "flip"),
+        ("tile_crater_under", CRATER_UNDER), ("tile_crater_ground", "flip"), ("tile_crater_ground", None), ("tile_crater_ground", None),
     ])),
     # 9 icons, each fitted into 16x16 (steam and drops stay with their item).
     "SurivialItems.png": dict(kind="parts", parts=[
@@ -740,13 +741,10 @@ def process_parts(rgb, mask, cfg, folder, index):
             sub, sm = rgb[y0 + iy:y1 - iy, x0 + ix:x1 - ix], m[y0 + iy:y1 - iy, x0 + ix:x1 - ix]
             if spec[0] == "tile":
                 c, a = resample(sub, np.ones(sm.shape, bool), 16, 16)
-                img = to_image(c, a)
-            else:
-                th = min(16, max(1, round(sub.shape[0] * 16.0 / sub.shape[1])))
-                c, a = resample(sub, sm, 16, th)
+            else:   # rock band on top, the drips hang into the tunnel below
+                c, a = resample(sub, sm, 16, 16)
                 c, a = defringe(c, a)
-                img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-                img.paste(to_image(c, a), (0, 0))
+            img = to_image(c, a)
             PART_TILES[name] = img
             save(img, folder, name, index)
             continue
