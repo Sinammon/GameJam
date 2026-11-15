@@ -26,3 +26,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.tmp
+
+# raw artist PNGs (too big to commit; input for bunker-7/art_tools/clean_art.py)
+art_raw_v2/

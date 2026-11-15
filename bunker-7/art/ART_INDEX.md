@@ -41,12 +41,27 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | characters_clean/rat_run_2.png | 27x13 | rat_run.png |
 | characters_clean/rat_run_3.png | 27x13 | rat_run.png |
 | characters_clean/rat_run_strip.png | 108x13 | rat_run.png |
+| characters_clean/survivor_chop_0.png | 32x33 | survivor_chop.png |
+| characters_clean/survivor_chop_1.png | 32x33 | survivor_chop.png |
+| characters_clean/survivor_chop_2.png | 32x33 | survivor_chop.png |
+| characters_clean/survivor_chop_3.png | 32x33 | survivor_chop.png |
+| characters_clean/survivor_chop_strip.png | 128x33 | survivor_chop.png |
+| characters_clean/survivor_climb_0.png | 16x32 | survivor_climb.png |
+| characters_clean/survivor_climb_1.png | 16x32 | survivor_climb.png |
+| characters_clean/survivor_climb_2.png | 16x32 | survivor_climb.png |
+| characters_clean/survivor_climb_3.png | 16x32 | survivor_climb.png |
+| characters_clean/survivor_climb_strip.png | 64x32 | survivor_climb.png |
 | characters_clean/survivor_collapse_0.png | 30x32 | survivor_collapse.png |
 | characters_clean/survivor_collapse_1.png | 30x32 | survivor_collapse.png |
 | characters_clean/survivor_collapse_2.png | 30x32 | survivor_collapse.png |
 | characters_clean/survivor_collapse_3.png | 30x32 | survivor_collapse.png |
 | characters_clean/survivor_collapse_strip.png | 120x32 | survivor_collapse.png |
 | characters_clean/survivor_concept.png | 28x64 | survivor_concept.png |
+| characters_clean/survivor_flashlight_idle_0.png | 22x32 | survivor_flash.png |
+| characters_clean/survivor_flashlight_idle_1.png | 22x32 | survivor_flash.png |
+| characters_clean/survivor_flashlight_idle_2.png | 22x32 | survivor_flash.png |
+| characters_clean/survivor_flashlight_idle_3.png | 22x32 | survivor_flash.png |
+| characters_clean/survivor_flashlight_idle_strip.png | 88x32 | survivor_flash.png |
 | characters_clean/survivor_hurt_0.png | 20x32 | survivor_hurt.png |
 | characters_clean/survivor_hurt_1.png | 20x32 | survivor_hurt.png |
 | characters_clean/survivor_hurt_strip.png | 40x32 | survivor_hurt.png |
@@ -76,6 +91,19 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | characters_clean/survivor_walk_3.png | 17x32 | survivor_walk.png |
 | characters_clean/survivor_walk_strip.png | 68x32 | survivor_walk.png |
 | characters_clean/title_art.png | 480x270 | title_art.png |
+| characters_clean/zombie_attack_0.png | 29x30 | Zombie_attack.png |
+| characters_clean/zombie_attack_1.png | 29x30 | Zombie_attack.png |
+| characters_clean/zombie_attack_2.png | 29x30 | Zombie_attack.png |
+| characters_clean/zombie_attack_strip.png | 87x30 | Zombie_attack.png |
+| characters_clean/zombie_concept.png | 30x64 | zombie_concept.png |
+| characters_clean/zombie_hurt_0.png | 24x32 | Zombie_hurt.png |
+| characters_clean/zombie_hurt_1.png | 24x32 | Zombie_hurt.png |
+| characters_clean/zombie_hurt_strip.png | 48x32 | Zombie_hurt.png |
+| characters_clean/zombie_walk_0.png | 17x32 | zombie_walk.png |
+| characters_clean/zombie_walk_1.png | 17x32 | zombie_walk.png |
+| characters_clean/zombie_walk_2.png | 17x32 | zombie_walk.png |
+| characters_clean/zombie_walk_3.png | 17x32 | zombie_walk.png |
+| characters_clean/zombie_walk_strip.png | 68x32 | zombie_walk.png |
 | world_clean/bg_far.png | 810x270 | FarCityLine.png |
 | world_clean/bg_near_depot.png | 810x270 | MilitaryBase.png |
 | world_clean/bg_near_market.png | 810x270 | GasStation.png |
@@ -106,12 +134,21 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/icon_scrap.png | 16x15 | Resources.png |
 | world_clean/icon_water.png | 9x16 | Resources.png |
 | world_clean/icon_wood.png | 16x13 | Resources.png |
+| world_clean/obj_branch.png | 9x8 | obj_trees.png |
+| world_clean/obj_bush.png | 30x20 | obj_trees.png |
 | world_clean/obj_crate_closed.png | 16x12 | WorldResources.png |
 | world_clean/obj_crate_open.png | 16x16 | WorldResources.png |
 | world_clean/obj_hatch.png | 32x28 | WorldResources.png |
 | world_clean/obj_last_stand_pack.png | 19x20 | WorldResources.png |
+| world_clean/obj_logs.png | 21x14 | obj_trees.png |
 | world_clean/obj_puddle.png | 31x12 | WorldResources.png |
 | world_clean/obj_sign.png | 14x23 | WorldResources.png |
+| world_clean/obj_stump.png | 29x16 | obj_trees.png |
+| world_clean/obj_tree_dead.png | 50x80 | obj_trees.png |
+| world_clean/obj_tree_oak.png | 83x112 | obj_trees.png |
+| world_clean/obj_tree_oak_orange.png | 79x112 | obj_trees.png |
+| world_clean/obj_tree_pine.png | 82x128 | obj_trees.png |
+| world_clean/obj_tree_sapling.png | 23x48 | obj_trees.png |
 | world_clean/pickup_circuits.png | 16x14 | PickUpItems.png |
 | world_clean/pickup_concrete.png | 16x12 | PickUpItems.png |
 | world_clean/pickup_food.png | 16x12 | PickUpItems.png |
@@ -141,6 +178,16 @@ Rooms are 234x78 (one bunker room cell), full screens 480x270, parallax layers 8
 | world_clean/tiles_bunker_pipe_wall.png | 16x16 | Build.png |
 | world_clean/tiles_bunker_steel_plate.png | 16x16 | Build.png |
 | world_clean/tiles_bunker_wood_planks.png | 16x16 | Build.png |
+| world_clean/tiles_crack.png | 64x16 | tiles_crack.png |
+| world_clean/tiles_ore.png | 64x32 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_bedrock.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_bones.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_circuits.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_concrete.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_pipe.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_planks.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_scrap_ore.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
+| world_clean/tiles_ore_toxic.png | 16x16 | tiles_ore.png + tiles_ore2.png + tiles_ore3.png |
 | world_clean/tiles_outside.png | 64x32 | Outside ground.png |
 | world_clean/tiles_outside_asphalt.png | 16x16 | Outside ground.png |
 | world_clean/tiles_outside_dirt.png | 16x16 | Outside ground.png |

@@ -13,7 +13,10 @@ Needs: python3 + Pillow + numpy  (pip3 install --user pillow numpy)
 Usage (from the bunker-7 folder):
   python3 art_tools/clean_art.py --chars <folder with character PNGs> --world <folder with world PNGs>
   python3 art_tools/clean_art.py ... --only BedRoom.png     # one file
+  The folders may hold just some of the raws (e.g. the V2 batch in ../art_raw_v2/{chars,world}):
+  ART_INDEX.md keeps the rows of files not processed in this run.
 Outputs: art/characters_clean/, art/world_clean/ and art/ART_INDEX.md (originals never modified).
+tiles_ore.png is built from the three ore sheets together (tiles_ore/2/3.png, see ORE_ATLAS).
 """
 import argparse
 import os
@@ -36,6 +39,10 @@ ART = os.path.normpath(os.path.join(HERE, "..", "art"))
 #   tiles  : N square tiles -> `tile` px each, plus a 4-wide atlas.
 #   panels : full pictures on a flat background colour (event thumbnails).
 SURV = ["survivor_%s" % s for s in ("idle", "walk", "jump", "mine", "hurt", "collapse")]
+# Height of the TALLEST frame per sheet, chosen so the figure itself comes out ~32 px like
+# survivor_idle (a raised axe / fist / hit marker adds to the tallest frame).
+SURV_H = {"chop": 33, "climb": 32, "flash": 32}
+ZOMBIE_H = {"walk": 32, "attack": 30, "hurt": 32}
 CHARS = {
     "survivor_idle.png.png": dict(kind="sheet", out="survivor_idle", n=4, anim=True, h=32),
     "survivor_idle.png":     dict(kind="sheet", out="survivor_idle", n=4, anim=True, h=32),
@@ -63,6 +70,14 @@ CHARS = {
     "ending_rescue.png":     dict(kind="full", out="ending_rescue", size=(480, 270)),
     "ending_alone.png":      dict(kind="full", out="ending_alone", size=(480, 270)),
     "game_over.png":         dict(kind="full", out="game_over", size=(480, 270)),
+    # V2 batch: zombie, axe swing, climbing (seen from behind), flashlight idle. All face right.
+    "zombie_walk.png":       dict(kind="sheet", out="zombie_walk", n=4, anim=True, h=ZOMBIE_H["walk"]),
+    "Zombie_attack.png":     dict(kind="sheet", out="zombie_attack", n=3, anim=True, h=ZOMBIE_H["attack"]),
+    "Zombie_hurt.png":       dict(kind="sheet", out="zombie_hurt", n=2, anim=True, h=ZOMBIE_H["hurt"]),
+    "zombie_concept.png":    dict(kind="single", out="zombie_concept", h=64),
+    "survivor_chop.png":     dict(kind="sheet", out="survivor_chop", n=4, anim=True, h=SURV_H["chop"]),
+    "survivor_climb.png":    dict(kind="sheet", out="survivor_climb", n=4, anim=True, h=SURV_H["climb"]),
+    "survivor_flash.png":    dict(kind="sheet", out="survivor_flashlight_idle", n=4, anim=True, h=SURV_H["flash"]),
 }
 ROOM = (234, 78)     # one bunker room cell in the bunker screen
 BG = (810, 270)      # parallax layers: 270 px tall like the viewport
@@ -102,7 +117,37 @@ WORLD = {
                              names=["ui_panel", "ui_button_normal", "ui_button_pressed", "ui_bar_frame", "ui_slot"]),
     "ThumbNail.png":   dict(kind="panels", grid=(3, 2), size=(88, 64),
                             names=["event_raiders", "event_storm", "event_pipe", "event_stranger", "event_rats", "event_quiet"]),
+    # V2 batch. Trees: one file each, sized in 16 px tiles by height (the width follows):
+    # dead tree 5 tiles, sapling 3, oak 7, pine 8; stump/bush/logs/branch small props.
+    "obj_trees.png":   dict(kind="sheet", n=9, cuts=[284, 470, 795, 1090, 1363, 1582, 1804, 2010],
+                            boxes=[(200, h) for h in (80, 48, 112, 112, 128, 16, 20, 14, 8)],
+                            names=["obj_tree_dead", "obj_tree_sapling", "obj_tree_oak", "obj_tree_oak_orange",
+                                   "obj_tree_pine", "obj_stump", "obj_bush", "obj_logs", "obj_branch"]),
+    # 4 crack stages on one 4x1 grid -> tiles_crack.png 64x16 (thin lines: lower coverage threshold)
+    "tiles_crack.png": dict(kind="overlay_grid", grid=(4, 1), tile=16, out="tiles_crack", cover=0.18),
+    # Ore tiles: kept in memory and combined into tiles_ore.png (see ORE_ATLAS below)
+    "tiles_ore.png":   dict(kind="ore_tiles", set="a", n=9,
+                            names=["stone", "copper", "silver", "gold", "crystal_green", "dirt", "dirt_pebbles",
+                                   "dirt_rocks", "toxic_cracked"]),
+    "tiles_ore2.png":  dict(kind="ore_tiles", set="b", n=6,
+                            names=["stone_chunks", "copper", "gold", "crystal_blue", "toxic", "crystal_purple"]),
+    "tiles_ore3.png":  dict(kind="ore_tiles", set="c", n=6,
+                            names=["stone", "copper", "silver", "crystal_blue", "gold", "toxic_slime"]),
 }
+# tiles_ore.png = 4x2 cells of 16 px in the order scenes/mining.gd ORE_ATLAS expects:
+#   scrap_ore, concrete, circuits, bedrock / planks, pipe, bones, toxic
+# each = (source set, tile name, recolour). Recolours: None, ("dark", rgb mul) for the
+# whole tile, ("rocks", rgb) = only the grey stones in a dirt tile get that colour.
+ORE_ATLAS = [
+    ("scrap_ore", "c", "silver", None),
+    ("concrete", "b", "stone_chunks", None),
+    ("circuits", "c", "gold", None),
+    ("bedrock", "c", "stone", ("dark", (0.52, 0.56, 0.74))),
+    ("planks", "a", "dirt_rocks", ("rocks", (118, 76, 40))),
+    ("pipe", "a", "dirt_pebbles", ("rocks", (180, 72, 36))),
+    ("bones", "a", "dirt_pebbles", ("rocks", (226, 218, 192))),
+    ("toxic", "b", "toxic", None),
+]
 
 # --------------------------------------------------------------------------- pixels
 
@@ -136,9 +181,9 @@ def alpha_mask(rgb, bg, colour=None):
     return np.ones(rgb.shape[:2], bool)
 
 
-def resample(rgb, mask, out_w, out_h):
+def resample(rgb, mask, out_w, out_h, cover=0.5):
     """Block-median downscale: each output pixel = median colour of the opaque source
-    pixels in its block, opaque if at least half of the block is. No blur across blocks."""
+    pixels in its block, opaque if at least `cover` of the block is. No blur across blocks."""
     h, w = mask.shape
     sx, sy = w / out_w, h / out_h
     k = int(max(3, min(7, round(max(sx, sy)))))
@@ -154,7 +199,7 @@ def resample(rgb, mask, out_w, out_h):
         import warnings
         warnings.simplefilter("ignore")
         col = np.nanmedian(samp, axis=2)
-    a = m.mean(axis=2) >= 0.5
+    a = m.mean(axis=2) >= cover
     col = np.nan_to_num(col)
     return np.clip(np.round(col), 0, 255).astype(np.uint8), a
 
@@ -207,7 +252,7 @@ def bbox(a):
 
 # --------------------------------------------------------------------------- splitting
 
-def components(mask, n, coarse=4, dilate=3, min_area=40):
+def components(mask, n, coarse=4, dilate=3, min_area=40, warn=True):
     """Connected components on a coarse, dilated mask, merged down to n groups.
     Returns full-res boxes (x0,y0,x1,y1) sorted in reading order."""
     h, w = mask.shape
@@ -257,7 +302,7 @@ def components(mask, n, coarse=4, dilate=3, min_area=40):
         a, b = boxes[i], boxes[j]
         boxes[i] = [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]), a[4] + b[4]]
         del boxes[j]
-    if len(boxes) != n:
+    if len(boxes) != n and warn:
         print("   WARNING: found %d parts, expected %d" % (len(boxes), n))
     # undo dilation, go back to full res, then tighten on the real mask
     out = []
@@ -303,6 +348,30 @@ def scaled_piece(rgb, mask, box, scale):
     return c, a
 
 
+def despeckle(a, max_px=4):
+    """Removes tiny loose specks (8-connected groups of at most max_px pixels)."""
+    a = a.copy()
+    seen = np.zeros_like(a)
+    h, w = a.shape
+    for sy, sx in zip(*np.nonzero(a)):
+        if seen[sy, sx]:
+            continue
+        group, q = [], deque([(sy, sx)])
+        seen[sy, sx] = True
+        while q:
+            y, x = q.popleft()
+            group.append((y, x))
+            for ny in (y - 1, y, y + 1):
+                for nx in (x - 1, x, x + 1):
+                    if 0 <= ny < h and 0 <= nx < w and a[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        q.append((ny, nx))
+        if len(group) <= max_px:
+            for y, x in group:
+                a[y, x] = False
+    return a
+
+
 def trim(c, a):
     x0, y0, x1, y1 = bbox(a)
     return c[y0:y1, x0:x1], a[y0:y1, x0:x1]
@@ -321,6 +390,80 @@ def save(img, folder, name, index):
 
 
 CURRENT_SOURCE = [""]
+ORE_TILES = {}   # (set, name) -> 16x16x3 uint8, filled by "ore_tiles" sheets
+
+
+def tile_body(rgb, mask, box):
+    """The part of a tile picture inside its dark outline (and bevel): scans in from each
+    side on three lines and takes the deepest point where the outline ends, plus a margin."""
+    x0, y0, x1, y1 = box
+    lum = rgb[y0:y1, x0:x1].astype(int).mean(axis=2)
+    m = mask[y0:y1, x0:x1]
+    h, w = lum.shape
+    body = m & (lum > 55)
+
+    def depth(lines):   # lines: 1D bool arrays scanned from the outside in
+        best = 0
+        for ln in lines:
+            opaque = np.nonzero(ln[0])[0]
+            if len(opaque) == 0:
+                continue
+            inside = np.nonzero(ln[1][opaque[0]:])[0]
+            best = max(best, opaque[0] + (inside[0] if len(inside) else 0))
+        return best
+    fr = (0.3, 0.5, 0.7)
+    left = depth([(m[int(h * f)], body[int(h * f)]) for f in fr])
+    right = depth([(m[int(h * f)][::-1], body[int(h * f)][::-1]) for f in fr])
+    top = depth([(m[:, int(w * f)], body[:, int(w * f)]) for f in fr])
+    bottom = depth([(m[:, int(w * f)][::-1], body[:, int(w * f)][::-1]) for f in fr])
+    mx, my = w // 40, h // 40   # skip the light bevel just inside the outline
+    return rgb[y0 + top + my:y1 - bottom - my, x0 + left + mx:x1 - right - mx]
+
+
+def recolour(c, how):
+    c = c.astype(float)
+    if how is None:
+        return c.astype(np.uint8)
+    mode, col = how
+    if mode == "dark":
+        return np.clip(c * np.array(col), 0, 255).astype(np.uint8)
+    # "rocks": low-saturation (grey) pixels take colour `col`, keeping their light/dark shading
+    sat = c.max(axis=2) - c.min(axis=2)
+    lum = c.mean(axis=2, keepdims=True)
+    rock = (sat < 45)[..., None]
+    shaded = np.array(col)[None, None] * (lum / max(1.0, float(np.median(lum[rock[..., 0]]) if rock.any() else 128)))
+    # then darken the (orange) dirt towards tiles_outside_dirt so dug ore sits in the same ground
+    return np.clip(np.where(rock, shaded, c) * np.array(DIRT_MATCH), 0, 255).astype(np.uint8)
+
+
+DIRT_MATCH = (0.78, 0.78, 1.0)
+
+
+def build_ore_atlas(folder, index):
+    """tiles_ore.png (4x2, 16 px) from the ore tiles in ORE_ATLAS order, plus one file per cell."""
+    need = {(s, n) for _, s, n, _ in ORE_ATLAS}
+    if not need <= set(ORE_TILES):
+        print("   ore atlas skipped: missing %s" % sorted(need - set(ORE_TILES)))
+        return
+    CURRENT_SOURCE[0] = "tiles_ore.png + tiles_ore2.png + tiles_ore3.png"
+    atlas = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+    for i, (kind, s, n, how) in enumerate(ORE_ATLAS):
+        c = recolour(ORE_TILES[(s, n)], how)
+        img = to_image(c, np.ones(c.shape[:2], bool))
+        save(img, folder, "tiles_ore_%s" % kind, index)
+        atlas.paste(img, ((i % 4) * 16, (i // 4) * 16))
+    save(atlas, folder, "tiles_ore", index)
+    if PREVIEW_DIR[0]:
+        # every source tile, one row per raw sheet, for picking a different mapping (not game art)
+        sheet = Image.new("RGBA", (17 * 9, 17 * 3), (0, 0, 0, 0))
+        for r, s in enumerate("abc"):
+            for i, c in enumerate(v for k, v in ORE_TILES.items() if k[0] == s):
+                sheet.paste(to_image(c, np.ones(c.shape[:2], bool)), (i * 17, r * 17))
+        os.makedirs(PREVIEW_DIR[0], exist_ok=True)
+        sheet.save(os.path.join(PREVIEW_DIR[0], "ore_tiles_all.png"))
+
+
+PREVIEW_DIR = [""]   # --preview: where to write debug sheets (outside the Godot project)
 
 
 def process(path, cfg, folder, index):
@@ -355,7 +498,32 @@ def process(path, cfg, folder, index):
             save(to_image(c, a), folder, name, index)
         return
 
+    if kind == "overlay_grid":
+        # equal grid cells (a stage may be tiny, so no component split), each cell -> tile x tile
+        cols, rows = cfg["grid"]
+        H, W = rgb.shape[:2]
+        mask = alpha_mask(rgb, bg)
+        t = cfg["tile"]
+        strip = Image.new("RGBA", (t * cols, t * rows), (0, 0, 0, 0))
+        for i in range(cols * rows):
+            cx, cy = i % cols, i // cols
+            x0, x1 = W * cx // cols, W * (cx + 1) // cols
+            y0, y1 = H * cy // rows, H * (cy + 1) // rows
+            c, a = resample(rgb[y0:y1, x0:x1], mask[y0:y1, x0:x1], t, t, cover=cfg.get("cover", 0.5))
+            c, a = defringe(c, a)
+            strip.paste(to_image(c, a), (cx * t, cy * t))
+        save(strip, folder, cfg["out"], index)
+        return
+
     mask = alpha_mask(rgb, bg)
+    if kind == "ore_tiles":
+        # tiles with a dark outline on magenta: crop to the tile body (inside the outline), 16x16
+        for name, box in zip(cfg["names"], components(mask, cfg["n"], dilate=1)):
+            sub = tile_body(rgb, mask, box)
+            c, a = resample(sub, np.ones(sub.shape[:2], bool), 16, 16)
+            ORE_TILES[(cfg["set"], name)] = c
+        return
+
     if kind == "single":
         box = bbox(mask)
         scale = cfg["h"] / (box[3] - box[1]) if "h" in cfg else fit_scale(box, *cfg["box"])
@@ -381,7 +549,25 @@ def process(path, cfg, folder, index):
 
     # sheet
     n = cfg["n"]
-    boxes = components(mask, n, dilate=cfg.get("dilate", 3))
+    if "cuts" in cfg:
+        # objects that touch each other: split at fixed x positions (raw px), box = opaque part of each slice
+        xs = [0] + cfg["cuts"] + [mask.shape[1]]
+        boxes = []
+        for a, b in zip(xs[:-1], xs[1:]):
+            sub = np.zeros_like(mask)
+            sub[:, a:b] = mask[:, a:b]
+            # drop bits of the neighbours that poke over the cut (small parts far from the main one)
+            parts = components(sub, 99, dilate=1, min_area=1, warn=False)
+            area = lambda p: int(sub[p[1]:p[3], p[0]:p[2]].sum())
+            big = max(area(p) for p in parts)
+            keep = np.zeros_like(mask)
+            for p in parts:
+                if area(p) >= 0.04 * big:
+                    keep[p[1]:p[3], p[0]:p[2]] = True
+            mask[:, a:b] &= keep[:, a:b]
+            boxes.append(bbox(mask & keep))
+    else:
+        boxes = components(mask, n, dilate=cfg.get("dilate", 3))
     if cfg.get("order") == "ui":
         boxes = order_ui_parts(rgb, boxes)
     names = cfg.get("names") or ["%s_%d" % (cfg["out"], i) for i in range(len(boxes))]
@@ -409,7 +595,10 @@ def process(path, cfg, folder, index):
         else:
             bw, bh = cfg["boxes"][i] if "boxes" in cfg else cfg["box"]
             scale = fit_scale(b, bw, bh)
-        c, a = trim(*scaled_piece(rgb, mask, b, scale))
+        c, a = scaled_piece(rgb, mask, b, scale)
+        if "cuts" in cfg:
+            a = despeckle(a)
+        c, a = trim(c, a)
         save(to_image(c, a), folder, name, index)
 
 
@@ -429,6 +618,17 @@ def check_outputs(folders):
 
 
 def write_index(index):
+    """Rewrites ART_INDEX.md: rows for the files made in this run, plus the rows of the old
+    index for files that still exist (so a run on only part of the raws keeps the rest)."""
+    made = {rel for rel, _, _ in index}
+    old = os.path.join(ART, "ART_INDEX.md")
+    if os.path.exists(old):
+        for line in open(old):
+            parts = [p.strip() for p in line.strip().strip("|").split("|")]
+            if len(parts) == 3 and parts[0].endswith(".png") and parts[0] not in made \
+                    and os.path.exists(os.path.join(ART, parts[0])):
+                w, h = Image.open(os.path.join(ART, parts[0])).size
+                index.append((parts[0], (w, h), parts[2]))
     lines = ["# Art index (generated by art_tools/clean_art.py)", "",
              "Cleaned, game-size pixel art. Raw artist PNGs are not in the repo (too big); re-run the script on them.",
              "Animation frames of one sheet share one canvas size and a bottom baseline;",
@@ -446,7 +646,9 @@ def main():
     ap.add_argument("--chars", required=True, help="folder with the character PNGs")
     ap.add_argument("--world", required=True, help="folder with the world PNGs")
     ap.add_argument("--only", default="", help="process just this source file name")
+    ap.add_argument("--preview", default="", help="folder for debug sheets (e.g. all ore tiles); keep it outside the project")
     args = ap.parse_args()
+    PREVIEW_DIR[0] = args.preview
     index = []
     for src, table, sub in ((args.chars, CHARS, "characters_clean"), (args.world, WORLD, "world_clean")):
         folder = os.path.join(ART, sub)
@@ -457,8 +659,9 @@ def main():
                 print("skip (no rule): %s" % f)
                 continue
             process(os.path.join(src, f), table[f], folder, index)
-    if not args.only:
-        write_index(index)
+        if sub == "world_clean" and ORE_TILES:
+            build_ore_atlas(folder, index)
+    write_index(index)
     check_outputs([os.path.join(ART, "characters_clean"), os.path.join(ART, "world_clean")])
 
 
