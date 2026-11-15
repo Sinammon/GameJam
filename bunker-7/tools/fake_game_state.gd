@@ -5,6 +5,8 @@ extends Node
 var rad_mult := 1.0
 var carry := 12
 var pack := {}
+var tier := 1
+var max_hp := 10
 var bank_calls: Array = []     # each entry: items dict
 var died_calls: Array = []     # each entry: [items, position]
 
@@ -15,6 +17,8 @@ func get_move_speed_bonus() -> float: return 0.0
 func get_dig_speed_bonus() -> float: return 0.0
 func has_air_filter() -> bool: return false
 func has_reinforced_door() -> bool: return false
+func get_backpack_tier() -> int: return tier
+func get_max_health() -> int: return max_hp
 func get_last_stand_pack() -> Dictionary: return pack
 func bank_loot(items: Dictionary) -> void: bank_calls.append(items.duplicate())
 func player_died(items: Dictionary, position: Vector2) -> void: died_calls.append([items.duplicate(), position])
