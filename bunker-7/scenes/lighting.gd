@@ -32,7 +32,7 @@ const MIN_BRIGHTNESS := 0.35       # ambient never darker than this (luminance)
 const AMBIENT_SMOOTH := 2.0        # 1/s, how fast the ambient follows its target
 const HEADLAMP_RADIUS := 110.0
 const HEADLAMP_COLOR := Color(1.0, 0.93, 0.8)
-const HEADLAMP_ENERGY := Vector2(0.25, 0.85)   # energy at bright .. darkest ambient
+const HEADLAMP_ENERGY := Vector2(0.25, 1.0)    # energy at bright .. darkest ambient
 const CONE_LENGTH := 180.0
 const CONE_HALF_ANGLE := 0.42      # rad
 const CONE_COLOR := Color(1.0, 0.97, 0.88)
@@ -417,23 +417,23 @@ func _refresh() -> void:
 	var reach := 300.0 + VIEW_MARGIN
 	_assign_glow(center)
 	for s in sources:
-		s._chosen = false
-		s._score = INF
+		s.picked = false
+		s.pick_score = INF
 		if cap > 0 and s.wanted and s.is_visible_in_tree():
 			var d: float = s.global_position.distance_to(center)
 			if d - s.radius < reach:
-				s._score = d - s.priority
+				s.pick_score = d - s.priority
 	for k in cap:
 		var best: Node = null
 		for s in sources:
-			if not s._chosen and s._score < INF and (best == null or s._score < best._score):
+			if not s.picked and s.pick_score < INF and (best == null or s.pick_score < best.pick_score):
 				best = s
 		if best == null:
 			break
-		best._chosen = true
+		best.picked = true
 	for s in sources:
-		s.enabled = s._chosen
-		if not s._chosen:
+		s.enabled = s.picked
+		if not s.picked:
 			s.energy = s.base_energy
 	var boost := 1.0
 	if quality != "off":

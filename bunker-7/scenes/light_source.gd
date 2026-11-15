@@ -15,8 +15,8 @@ var priority := 0.0      # px "closer" when the cap picks which lights stay on
 var wanted := true       # false = always off (an unused pool light)
 var manager: Node = null # the Lighting node that registered this light
 var _seed := 0.0
-var _score := 0.0        # scratch for Lighting's pick (no allocation)
-var _chosen := false
+var pick_score := 0.0        # scratch for Lighting's pick (no allocation)
+var picked := false
 
 func configure(c: Color, energy_: float, radius_: float, flicker_ := 0.0) -> LightSource:
 	color = c
@@ -32,7 +32,7 @@ func configure(c: Color, energy_: float, radius_: float, flicker_ := 0.0) -> Lig
 	return self
 
 func _enter_tree() -> void:
-	add_to_group(Lighting.GROUP_SOURCES)
+	add_to_group("light_sources")   # Lighting.GROUP_SOURCES
 	var l := Lighting.find(self)
 	if l:
 		l.register(self)

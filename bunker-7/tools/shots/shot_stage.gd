@@ -18,6 +18,9 @@ func _frames(n: int) -> void:   # n frames' worth of real time (60 fps)
 func _stage() -> void:
 	await _frames(5)
 	var p: Node2D = ex.player
+	if mode.begins_with("light_"):
+		await _light_stage(p)
+		return
 	if mode == "tree":
 		var t: Node2D = get_tree().get_nodes_in_group("trees").filter(func(n: Node) -> bool: return n.size == "large")[0]
 		p.global_position = Vector2(t.position.x - 14, ex.floor_y(t.position.x - 14) - 1)
@@ -49,3 +52,47 @@ func _stage() -> void:
 	ex.inventory.select(1)
 	ex.swing.aim_override = p.global_position + Vector2(20, 0)
 	ex.swing.use("pickaxe")
+
+# Lighting shots (Phase 3): quality from the SHOT_QUALITY env var (full/simple/off).
+func _light_stage(p: Node2D) -> void:
+	var q := OS.get_environment("SHOT_QUALITY")
+	if ex.lighting and q != "":
+		ex.lighting.set_quality(q)
+	var m: Node2D = ex.mining
+	match mode:
+		"light_hatch":   # just outside the hatch, radiation low
+			p.global_position = Vector2(ex.HATCH_X + 60, ex.floor_y(ex.HATCH_X + 60) - 1)
+			p.face(-1.0)
+			ex.radiation = 10.0
+		"light_depot":   # far out in the depot, radiation high, an exposed toxic crystal
+			var target := Vector2i(-1, -1)
+			for c in ex.toxic_cells:
+				if c.x < 40 and c.x > 14 and (target.x < 0 or c.y > target.y):
+					target = c
+			if target.x >= 0:
+				for y in range(m.floor_rows[target.x], target.y):
+					m._break(Vector2i(target.x, y), m.kind_at(Vector2i(target.x, y)))
+				ex._update_toxic_glow()
+			var x := target.x * 16.0 + 40.0 if target.x >= 0 else 300.0
+			p.global_position = Vector2(x, ex.floor_y(x) - 1)
+			p.face(-1.0)
+			ex.radiation = 80.0
+			print("[shot] toxic cell ", target)
+		"light_hole":   # at the bottom of a mined pit with the flashlight, middle of the market
+			var c := 0
+			for col in range(ex.HATCH_COL + 60, ex.COLS - 10):
+				if not m.protected_cols.has(col) and not m.protected_cols.has(col + 1) and not m.protected_cols.has(col + 2) and ex.surface_rows[col] == ex.BASE_ROW and ex.surface_rows[col + 2] == ex.BASE_ROW:
+					c = col
+					break
+			for d in 2: m.hit(Vector2i(c, ex.BASE_ROW + d), 99.0)
+			for d in 4: m.hit(Vector2i(c + 1, ex.BASE_ROW + d), 99.0)
+			for d in 2: m.hit(Vector2i(c + 2, ex.BASE_ROW + d), 99.0)
+			await _frames(2)
+			p.global_position = Vector2((c + 1) * 16 + 8, (ex.BASE_ROW + 4) * 16 - 1)
+			p.face(1.0)
+			ex.inventory.select(2)
+			ex.radiation = 50.0
+			ex.spawner.spawn_at((c + 6) * 16 + 8)
+	await _frames(90)   # let the ambient settle
+	if ex.lighting:
+		ex.lighting.ambient = ex.lighting.ambient_target

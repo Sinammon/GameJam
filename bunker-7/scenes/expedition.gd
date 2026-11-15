@@ -53,7 +53,7 @@ const DARK_DIST := 0.42
 const DARK_RAD := 0.3
 const HATCH_LAMP := [Color(1.0, 0.72, 0.38), 1.1, 100.0, 0.12]   # colour, energy, radius, flicker
 const PACK_LAMP := [Color(1.0, 0.9, 0.3), 0.8, 44.0, 1.2]        # colour, energy, radius, pulses/s
-const TOXIC_GLOW := [Color(0.55, 1.0, 0.3), 0.75, 40.0, 3]       # colour, energy, radius, pool size
+const TOXIC_GLOW := [Color(0.55, 1.0, 0.3), 0.9, 40.0, 3]       # colour, energy, radius, pool size
 const RAD_LINES := ["Radiation rising. Head home.", "Radiation high! Go home now!", "Radiation sickness! Losing health!"]
 
 var rad: RefCounted = RadiationScript.new()

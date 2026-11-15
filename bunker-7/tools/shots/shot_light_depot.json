@@ -1,0 +1,9 @@
+{
+  "scene_path": "res://tools/shots/shot_light_depot.tscn",
+  "viewport_size": [480, 270],
+  "settle_frames": 10,
+  "steps": [
+    {"type": "wait_seconds", "seconds": 2.5},
+    {"type": "screenshot", "path": "user://shot_light_depot.png", "expect": {"not_blank": true}}
+  ]
+}
