@@ -236,6 +236,8 @@ func test_unlock() -> void:
 	check(await walk_to(b.station_x("workbench", "utility")), "walked into the utility room")
 	# a damaged room: no building, repair instead
 	gs.scrap = 20
+	gs.concrete = 2   # V3: the Water Filter also needs concrete and a circuit
+	gs.circuits = 1
 	gs.damaged_rooms.append("utility")
 	gs.changed.emit()
 	await frames(2)
@@ -248,6 +250,8 @@ func test_unlock() -> void:
 	check(not b.popup.buttons["build_purifier"].disabled, "after repair: Build is enabled")
 	await tap(KEY_ESCAPE)
 	gs.scrap = 0
+	gs.concrete = 0
+	gs.circuits = 0
 
 # ---------------------------------------------------------------- backpack
 func test_backpack() -> void:
@@ -319,6 +323,12 @@ func test_ladder_and_hatch() -> void:
 	check(await walk_to(b.shaft_x()), "at the foot of the ladder")
 	check(b.near.get("kind", "") == "ladder", "ladder prompt")
 	await tap(KEY_E)
+	if gs.is_location_unlocked("mine"):   # V3: from day 2 the ladder asks where to go
+		check(b.popup != null and b.popup_kind.begins_with("ladder") and b.popup.buttons.has("go_mine")
+				and b.popup.buttons["go_crater"].disabled == not gs.is_location_unlocked("crater"), "ladder asks where to go (crater locked until day 4)")
+		await frames(3)
+		await tap(KEY_ENTER)   # the first button: the surface
+		await frames(2)
 	check(b.walker.climbing and b.busy, "E climbs up the ladder")
 	check(await wait_scene(EXPEDITION), "the climb starts the expedition")
 	check(gs.went_outside, "today's trip is marked")
@@ -354,6 +364,9 @@ func test_death_flow() -> void:
 	var b := bunker()
 	await walk_to(b.shaft_x())
 	await tap(KEY_E)
+	if b.popup != null:   # destination popup (day 2+): the surface
+		await frames(3)
+		await tap(KEY_ENTER)
 	check(await wait_scene(EXPEDITION), "out again for the death test")
 	await frames(30)
 	var ex: Node = current_scene

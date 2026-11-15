@@ -205,7 +205,7 @@ func test_death() -> void:
 	if gs.died_calls.size() == 1:
 		var items: Dictionary = gs.died_calls[0][0]
 		var pos: Vector2 = gs.died_calls[0][1]
-		check(items == {"wood": 0, "concrete": 0, "scrap": 4, "circuits": 0, "water": 0, "food": 0}, "died with %s" % str(items))
+		check(int(items.get("scrap", 0)) == 4 and items.values().reduce(func(a, b): return a + b, 0) == 4, "died with %s" % str(items))
 		check(absf(pos.x - dx) < 5, "death position %s" % str(pos))
 
 # E twice at the hatch with nothing carried = go home empty-handed.
@@ -257,7 +257,8 @@ func test_supplies() -> void:
 		c.setup(randf(), 1.0)
 		for k in c.contents: kinds[k] = true
 		c.free()
-	check(kinds.has("water") and kinds.has("food") and kinds.keys().all(func(k): return k in GSBridge.ITEM_KINDS), "crates roll supplies: %s" % str(kinds.keys()))
+	# V3: crates hold rare clean water and canned food (meals come from the Stove)
+	check(kinds.has("water") and kinds.has("canned_food") and kinds.keys().all(func(k): return k in GSBridge.ITEM_KINDS), "crates roll supplies: %s" % str(kinds.keys()))
 	var cr = ex.crates.get_child(1)
 	cr.contents = {"water": 2, "food": 1, "wood": 2}
 	p.add_item("scrap", 9)   # 3 slots left
