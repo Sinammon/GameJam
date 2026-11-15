@@ -28,7 +28,7 @@ func _ready() -> void:
 	_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_goal.custom_minimum_size = Vector2(300, 0)
 	_box.add_child(_goal)
-	_note = UIKit.outlined("", 9, UIKit.BAD)
+	_note = UIKit.outlined("", 9, UIKit.TEXT)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.custom_minimum_size = Vector2(300, 0)
 	_box.add_child(_note)

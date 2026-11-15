@@ -434,6 +434,7 @@ func _build_overlays() -> void:
 	_goal_label.position = Vector2(4, 15)
 	_goal_label.size = Vector2(VIEW.x - 8, 13)
 	_goal_label.clip_text = true
+	_goal_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_hud_layer.add_child(_goal_label)
 
 	_banner = PanelContainer.new()
@@ -478,7 +479,7 @@ func _refresh_hud() -> void:
 	_hud_row.size = Vector2(VIEW.x, 15)
 	_hud_layer.add_child(_hud_row)
 	if _goal_label:
-		_goal_label.text = "%s   Thirst %d  Hunger %d" % [_goal_line(), int(gs.water_meter), int(gs.food_meter)]
+		_goal_label.text = "Thirst %d  Hunger %d   %s" % [int(gs.water_meter), int(gs.food_meter), _goal_line()]
 
 # "Goal: Bring home 8 scrap. (scrap 3/8)" or "Done: ..." for the top bar and the day banner.
 func _goal_line() -> String:

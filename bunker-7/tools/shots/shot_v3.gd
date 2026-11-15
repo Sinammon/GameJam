@@ -1,5 +1,5 @@
 extends Node
-# V3 screenshots (not part of the game). SHOT_MODE = morning | bunker | stations | hud | mine | crater | book
+# V3 screenshots (not part of the game). SHOT_MODE = morning | bunker | stations | utility | hud | mine | crater | book
 # python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_v3.json --godot-bin "$GODOT"
 # with SHOT_MODE set; the picture lands in user://shot_v3.png.
 
@@ -12,7 +12,7 @@ func _ready() -> void:
 	SettingsStore.set_value("tutorial_seen", true)
 	var gs := GameState
 	gs.seed_rng(7)
-	gs.day = 4 if mode in ["crater", "stations", "bunker"] else 2
+	gs.day = 4 if mode in ["crater", "stations", "bunker", "utility"] else 2
 	gs.water = 3
 	gs.food = 2
 	gs.dirty_water = 4
@@ -32,7 +32,7 @@ func _ready() -> void:
 	match mode:
 		"morning":
 			add_child(load("res://scenes/morning.tscn").instantiate())
-		"bunker", "stations", "book":
+		"bunker", "stations", "book", "utility":
 			var b: Node2D = load("res://scenes/bunker.tscn").instantiate()
 			add_child(b)
 			_bunker_stage.call_deferred(b)
@@ -53,6 +53,9 @@ func _bunker_stage(b: Node2D) -> void:
 			b.walker.position.x = b.station_x("stove", "utility") - 20
 			await _wait(0.6)
 			b.use_station({"kind": "stove", "x": b.station_x("stove", "utility"), "room": "utility"})
+		"utility":
+			b.walker.position.x = b.station_x("stove", "utility") + 30
+			b.banner("")
 		"book":
 			b.pause_menu.open()
 			b.pause_menu.open_book()

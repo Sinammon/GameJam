@@ -384,7 +384,7 @@ func build_background() -> void:
 		var t := Art.texture("res://art/world_clean/bg_near_%s.png" % area)
 		if t:
 			near.append(t)
-	if near.size() == 3:
+	if near.size() == 3 and location == "surface":   # the town panels belong to the surface only
 		near.append_array([near[2], near[1], near[0]])
 		_parallax(0.8, near, -26.0, false, Color(0.62, 0.58, 0.6), 3)
 

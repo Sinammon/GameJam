@@ -69,7 +69,8 @@ static func _items(g: Node) -> Array:
 				used.append(g.RECIPES[id].name)
 		for t in g.BACKPACK_COSTS:
 			if g.BACKPACK_COSTS[t].has(kind):
-				used.append("Backpack %d" % t)
+				used.append("backpack upgrades")
+				break
 		var use: String = info.use
 		if not used.is_empty():
 			use += " Needed for: %s." % ", ".join(used)

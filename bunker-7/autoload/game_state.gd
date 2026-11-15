@@ -810,6 +810,8 @@ func cost_text(cost: Dictionary) -> String:
 
 # "dirty water", "radio part" (stock ids with spaces).
 func item_name(kind: String) -> String:
+	if ITEMS.has(kind):
+		return str(ITEMS[kind].name).to_lower()
 	return kind.replace("_", " ")
 
 # ---------------------------------------------------------------- V3: water filter, stove, eating in the bunker

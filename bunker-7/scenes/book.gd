@@ -40,10 +40,10 @@ func _ready() -> void:
 	top.add_theme_constant_override("separation", 3)
 	v.add_child(top)
 	var title := UIKit.outlined("CRAFTS / BOOK", 12, UIKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
-	title.custom_minimum_size = Vector2(108, 0)
+	title.custom_minimum_size = Vector2(96, 0)
 	top.add_child(title)
 	for s in GuideData.SECTIONS:
-		var b := UIKit.button(s, Vector2(52, 16), 8)
+		var b := UIKit.button(s, Vector2(58, 16), 8)
 		b.focus_mode = Control.FOCUS_ALL
 		b.toggle_mode = true
 		b.pressed.connect(show_section.bind(s))

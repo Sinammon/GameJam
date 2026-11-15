@@ -63,7 +63,7 @@ const LOCATIONS := {
 		"cols": 200, "hatch_col": 100, "base_row": 14,
 		"hills": [[22, 6, 1], [44, 8, 2], [70, 6, 1], [88, 5, 2], [-20, 5, 1], [-46, 9, 2], [-72, 6, 2], [-90, 5, 1]],
 		"ceiling": 7, "rad": 0.35,
-		"ambient": Color(0.34, 0.31, 0.36), "min_light": 0.16, "dark_dist": 0.35,
+		"ambient": Color(0.34, 0.31, 0.36), "min_light": 0.2, "dark_dist": 0.35,
 		"zone_tint": [Color(1.0, 0.9, 0.8), Color(0.9, 0.92, 1.0), Color(0.85, 1.0, 0.85)],
 		"sky": Color(0.07, 0.06, 0.07), "bg_tint": Color(0.22, 0.2, 0.24), "ground_tint": Color(0.62, 0.56, 0.6),
 		"trees": false,

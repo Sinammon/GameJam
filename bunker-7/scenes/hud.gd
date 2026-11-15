@@ -287,6 +287,12 @@ func _draw_radiation(at: Vector2) -> void:
 	_num(at + Vector2(bar_x + 124, 12), "%d" % int(v), col)
 	# V3: where you are and today's goal, tiny, under the bar
 	var line := goal_text
+	var cut := line.find(" (")
+	if cut > 0:
+		line = line.left(cut) + "."   # drop "(Utility Room)" hints in the tiny HUD line
+	while line.length() > 4 and _font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, UIKit.fs(7)).x > 184.0:
+		line = line.left(line.length() - 2) + "~"
+		line = line.left(line.length() - 1)
 	if line != "":
 		draw_node.draw_string(_font, at + Vector2(bar_x - 22, 26), line, HORIZONTAL_ALIGNMENT_CENTER, 186, UIKit.fs(7), Color(0, 0, 0, 0.8))
 		draw_node.draw_string(_font, at + Vector2(bar_x - 23, 25), line, HORIZONTAL_ALIGNMENT_CENTER, 186, UIKit.fs(7), Color(0.9, 0.88, 0.75))
