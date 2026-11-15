@@ -102,3 +102,36 @@ All tuning constants sit at the top of their script, under a "Tuning" comment.
   placeholder is used instead of crashing. Exact-size atlases avoid the readback entirely.
 - Tests switch zombies off with `expedition.zombies_enabled = false` before adding the scene (the timed walks in
   `test_expedition.gd` would otherwise be interrupted); `tools/test_phase2.gd` covers the new systems.
+
+## Phase 3: lights and shadows
+Module: `scenes/lighting.gd` (class `Lighting`) + `scenes/light_source.gd` (class `LightSource`, a PointLight2D).
+The expedition loads it with `load()` in `_setup_lighting()`, so the game still runs if the file is missing.
+- **Quality** (`SettingsStore` `lights_quality`): `full` = ambient + lights + shadows on the headlamp/cone,
+  cap 6 world lights; `simple` = ambient + lights, no occluders, cap 3; `off` = no CanvasModulate, no lights,
+  no occluders (exactly the old look). Applied live: the pause menu's `settings_changed(key, value)` signal
+  (`lighting.watch(pause_menu)`) plus a 0.5 s poll of SettingsStore (SettingsStore itself has no signal; the poll
+  also catches changes from other screens). Lighting runs with PROCESS_MODE_ALWAYS so it applies while paused.
+  Debug builds: **F2** cycles full -> simple -> off (not saved; the next real settings change wins).
+- **Ambient** (expedition `dusk_ambient()`, constants at the top of expedition.gd): `DUSK` x zone tint
+  (`ZONE_TINT`: suburb warm, market neutral, depot green, blended) x (1 - `DARK_DIST` x distance - `DARK_RAD` x
+  radiation). Lighting smooths it (`AMBIENT_SMOOTH`) and never lets it drop below `MIN_BRIGHTNESS` 0.35 luminance.
+- **Player**: headlamp (radius 110, warm white) at the chest; its energy rises as the ambient darkens
+  (`HEADLAMP_ENERGY` 0.25..1.0). Flashlight (hotbar slot 3 selected): a 180 px cone texture generated once,
+  rotated to the facing side, tilted 0.12 rad down. Both are children of the player and exist only when quality != off.
+  The headlamp does not light the parallax background (background items use light_mask 2, the headlamp only mask 1).
+- **World lights** (LightSource, cap + only near the camera, refresh every 0.2 s, no allocation per frame):
+  hatch lamp (warm, flicker, priority so it always survives the cap = the safe-zone marker), Last Stand Pack (yellow
+  pulse), toxic glow pool (3 green lights placed on the nearest exposed toxic tiles within 320 px: surface toxic
+  tiles in the depot and toxic crystals once a side or top is dug open). Flicker = 3 sines, pulse = 1 sine.
+- **Shadows**: generated occluder polygons from the ground height map (`mining.floor_rows`), 20 columns per
+  LightOccluder2D (15 total), with a 5 px lit skin on top and on exposed side faces (so the ground surface and hole
+  walls still catch the headlamp). `mining.block_broken` -> `lighting.refresh_ground_col(col)` rebuilds that chunk
+  (and its neighbour at a chunk edge). Shadow filter NONE. Only the headlamp and cone cast shadows, only in full.
+- **Zombie eyes** (placeholder eye rects) are in group `light_glow`; Lighting sets their `self_modulate` to
+  1/ambient brightness (max x3) so they stay bright in the dark. No light per zombie.
+- **Not darkened**: HUD, vignette, fade, pause menu, tutorial are CanvasLayers (checked in the test).
+- **Cost**: CanvasModulate is free. Each enabled light is an extra per-pixel pass over the items inside its rect;
+  the shadow-casting lights also render a 1D shadow map from 15 small polygons. Worst case on screen: 6 world
+  lights + headlamp + cone in full, 3 + 2 in simple. Not measured on a real GPU or in a browser yet: if the web
+  build is slow, "simple" drops the shadows, "off" drops everything.
+- Screenshots: `tools/shots/shot_light_{hatch,depot,hole}.json` with `SHOT_QUALITY=full|simple|off` (see COMMANDS).

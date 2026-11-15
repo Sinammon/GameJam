@@ -11,7 +11,12 @@
    (Zombies are switched off there: `ex.zombies_enabled = false`.)
 4. Phase 2 test (trees, carry limit, mining, dig rules, climbing out of holes, zombies, spawner, a random soak):
    `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_phase2.gd`
-5. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
+5. Lighting test (qualities create/remove nodes, light cap, live switch via the pause menu signal and the settings poll,
+   F2, a mined block stops occluding, glow pool, ambient, zombie eyes):
+   `Godot --headless --fixed-fps 60 --path bunker-7 --script res://tools/test_lighting.gd` (uses its own settings file)
+6. Lighting screenshots: `SHOT_QUALITY=full python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_light_hole.json --godot-bin "$GODOT"`
+   (also `shot_light_hatch.json`, `shot_light_depot.json`; quality full/simple/off).
+7. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
    (also `shot_tree_fall.json`, `shot_hole.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
 
 ## Controls
@@ -20,7 +25,8 @@
 - Axe: chop dead trees (logs = wood), hit zombies lightly. Pickaxe: dig the block under the mouse / in front / under you, hit zombies harder. Swings aim at the mouse side (or where you face), one every 0.4 s.
 - E near a crate opens it. E inside the hatch (middle of the map) banks your loot.
 - E in the hatch with an empty backpack asks first ("Press E again to go inside"); a second E within 2 s goes home empty-handed. This stops an accidental E at spawn ending the day.
-- Debug builds only (editor F5 / debug export): F1 fills radiation to 100% (to test the health drain).
+- Debug builds only (editor F5 / debug export): F1 fills radiation to 100% (to test the health drain). F2 cycles the lights quality (full, simple, off; not saved).
+- Lights: Esc > Settings > Lights (Full, Simple, Off), applied at once. Hotbar 3 (flashlight) shines a beam where you face. See `V2_NOTES.md` Phase 3.
 
 ## How it plays
 - World: 4800 px (10 screens), hatch in the middle (x=2408). Zones mirrored: depot | market | suburb | HATCH | suburb | market | depot. See `V2_NOTES.md`.
