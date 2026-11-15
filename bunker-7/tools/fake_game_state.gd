@@ -7,14 +7,17 @@ var carry := 12
 var pack := {}
 var tier := 1
 var max_hp := 10
+var day := 1                   # read by GSBridge.day() (zombie numbers)
+var dig_bonus := 0.0
+var loot_mult := 1.0
 var bank_calls: Array = []     # each entry: items dict
 var died_calls: Array = []     # each entry: [items, position]
 
 func get_radiation_multiplier() -> float: return rad_mult
-func get_loot_multiplier() -> float: return 1.0
+func get_loot_multiplier() -> float: return loot_mult
 func get_carry_limit() -> int: return carry
 func get_move_speed_bonus() -> float: return 0.0
-func get_dig_speed_bonus() -> float: return 0.0
+func get_dig_speed_bonus() -> float: return dig_bonus
 func has_air_filter() -> bool: return false
 func has_reinforced_door() -> bool: return false
 func get_backpack_tier() -> int: return tier

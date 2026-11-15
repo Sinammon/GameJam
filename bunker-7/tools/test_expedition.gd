@@ -51,6 +51,7 @@ func start_expedition() -> void:
 		ex.queue_free()
 		await frames(1)
 	ex = load("res://scenes/expedition.tscn").instantiate()
+	ex.zombies_enabled = false   # these tests time walks and radiation; zombies: test_phase2.gd
 	root.add_child(ex)
 	current_scene = ex
 	p = ex.player
