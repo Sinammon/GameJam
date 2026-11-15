@@ -29,3 +29,5 @@ Thumbs.db
 
 # raw artist PNGs (too big to commit; input for bunker-7/art_tools/clean_art.py)
 art_raw_v2/
+# Local-only docs (prompts, plans)
+_local_docs/
