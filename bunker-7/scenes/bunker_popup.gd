@@ -77,6 +77,21 @@ func row(text: String, note: String, button_text: String, id: String, enabled: b
 	buttons[id] = b
 	return b
 
+# Several small buttons side by side: [[text, id, enabled, on_press], ...]. Returns the row.
+func button_row(items: Array, width := 60) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 4)
+	box.add_child(h)
+	for it in items:
+		var b := UIKit.button(str(it[0]), Vector2(width, 16), 8)
+		b.disabled = not bool(it[2])
+		b.focus_mode = Control.FOCUS_ALL
+		b.pressed.connect(it[3])
+		h.add_child(b)
+		buttons[str(it[1])] = b
+	return h
+
 func add_node(n: Control) -> void:
 	box.add_child(n)
 
