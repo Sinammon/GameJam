@@ -97,7 +97,7 @@ func _build() -> void:
 	fs_row.add_child(_row_label("Fullscreen"))
 	fullscreen_check = CheckBox.new()
 	fullscreen_check.text = "On"
-	fullscreen_check.add_theme_font_size_override("font_size", 9)
+	fullscreen_check.add_theme_font_size_override("font_size", UIKit.fs(9))
 	fullscreen_check.button_pressed = bool(SettingsStore.get_value("fullscreen"))
 	fullscreen_check.toggled.connect(_on_fullscreen)
 	fs_row.add_child(fullscreen_check)
@@ -106,7 +106,7 @@ func _build() -> void:
 	settings_page.add_child(lq_row)
 	lq_row.add_child(_row_label("Lights quality"))
 	lights_option = OptionButton.new()
-	lights_option.add_theme_font_size_override("font_size", 9)
+	lights_option.add_theme_font_size_override("font_size", UIKit.fs(9))
 	lights_option.custom_minimum_size = Vector2(90, 16)
 	for q in SettingsStore.LIGHTS_QUALITIES:
 		lights_option.add_item(str(q).capitalize())

@@ -36,7 +36,10 @@ func _ready() -> void:
 	_box.add_child(_wait)
 
 	if OS.is_debug_build():
-		_box.add_child(UIKit.label("cheats: F2/7 +10 materials   F3/8 skip day   F4/9 +bounce", 7, UIKit.DIM))
+		var cheats := UIKit.label("cheats: F2/7 +10 materials   F3/8 skip day   F4/9 +bounce", 7, UIKit.DIM)
+		cheats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cheats.custom_minimum_size = Vector2(240, 0)
+		_box.add_child(cheats)
 
 	GameState.changed.connect(_refresh)
 	_refresh()
