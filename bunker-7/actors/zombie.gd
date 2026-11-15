@@ -96,6 +96,7 @@ func _build_visual() -> void:
 		eye.position = Vector2(ex, -21)
 		eye.size = Vector2(2, 2)
 		eye.name = "Eye"
+		eye.add_to_group("light_glow")   # Lighting boosts self_modulate so the eyes stay bright in the dark
 		body.add_child(eye)
 
 func _play(anim: String) -> void:

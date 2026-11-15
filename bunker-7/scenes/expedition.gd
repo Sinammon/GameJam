@@ -43,6 +43,17 @@ const TREE_MIN_COL := 12
 const TREE_GAP := [5, 11]    # columns between trees (random in this range)
 
 const PAUSE_MENU := "res://scenes/pause_menu.tscn"
+const LIGHTING := "res://scenes/lighting.gd"   # optional: the game runs without it
+
+# Lighting tuning (Phase 3). Ambient = DUSK x zone tint x (1 - darkness), never
+# below Lighting.MIN_BRIGHTNESS. darkness = DARK_DIST x distance + DARK_RAD x radiation.
+const DUSK := Color(0.86, 0.8, 0.9)
+const ZONE_TINT := [Color(1.0, 0.92, 0.82), Color(0.96, 0.96, 1.0), Color(0.82, 1.0, 0.8)]   # suburb warm, market, depot green
+const DARK_DIST := 0.42
+const DARK_RAD := 0.3
+const HATCH_LAMP := [Color(1.0, 0.72, 0.38), 1.1, 100.0, 0.12]   # colour, energy, radius, flicker
+const PACK_LAMP := [Color(1.0, 0.9, 0.3), 0.8, 44.0, 1.2]        # colour, energy, radius, pulses/s
+const TOXIC_GLOW := [Color(0.55, 1.0, 0.3), 0.75, 40.0, 3]       # colour, energy, radius, pool size
 const RAD_LINES := ["Radiation rising. Head home.", "Radiation high! Go home now!", "Radiation sickness! Losing health!"]
 
 var rad: RefCounted = RadiationScript.new()
@@ -64,6 +75,8 @@ var swing: Node2D = null
 var spawner: Node = null
 var _shake_tween: Tween
 var last_stand_pack: Area2D = null
+var lighting: Node2D = null  # scenes/lighting.gd, if present
+var toxic_cells: Array[Vector2i] = []   # glowing toxic tiles (lit once exposed)
 
 # tiles_outside.png atlas (4x2)
 const T_DIRT := Vector2i(0, 0)
@@ -126,6 +139,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(PAUSE_MENU):
 		pause_menu = load(PAUSE_MENU).instantiate()
 		add_child(pause_menu)
+	_setup_lighting()
 
 # 0 = suburb (next to the hatch), 1 = market, 2 = depot (edges). Same on both sides.
 func area_of(col: int) -> int:
@@ -172,6 +186,7 @@ func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Col
 	move_child(layer, _bg_layers)   # behind everything, in call order
 	_bg_layers += 1
 	var x := 0.0
+	$Sky.light_mask = 2   # Lighting.MASK_BACKGROUND: world lamps only, not the headlamp
 	# enough panels to cover what the camera can show at this scroll speed
 	var need := (WORLD_W - 480.0) * scroll + 480.0
 	var i := 0
@@ -181,6 +196,7 @@ func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Col
 		s.texture = tex
 		s.centered = false
 		s.position = Vector2(x, y)
+		s.light_mask = 2   # Lighting.MASK_BACKGROUND
 		s.flip_h = (mirror and i % 2 == 1) or (mirror_from >= 0 and i % textures.size() >= mirror_from)
 		layer.add_child(s)
 		x += tex.get_width()
@@ -220,7 +236,10 @@ func build_terrain() -> void:
 			var kind := "bedrock"
 			if y < BOTTOM_ROW - 1:
 				kind = mining.kind_for(y - surface_rows[x], distance_frac(x * TILE + 8.0), area_of(x))
-			mining.place(Vector2i(x, y), kind, art_tile(x, y))
+			var at := art_tile(x, y)
+			mining.place(Vector2i(x, y), kind, at)
+			if kind == "toxic" or (kind == "surface" and at == T_TOXIC):
+				toxic_cells.append(Vector2i(x, y))
 
 # y (px) of the top of the natural ground at world x (before any digging)
 func surface_y(x: float) -> float:
@@ -338,8 +357,66 @@ func _process(delta: float) -> void:
 		return   # no radiation during the death fade or after banking
 	rad.tick(delta, distance_frac(player.position.x), rad_mult, hatch.player_inside)
 	hud.set_hint("E: bank loot" if hatch.player_inside else "")
+	if lighting:
+		lighting.set_ambient(dusk_ambient())
 	# the camera follows the player down into holes, else shows one screen from the top
 	camera.limit_bottom = clampi(int(player.global_position.y) + 46, CAM_BOTTOM_MIN, CAM_BOTTOM_MAX)
+
+# --- lighting (scenes/lighting.gd) -------------------------------------------------
+
+# Everything is optional: without lighting.gd (or with quality "off") the plain look stays.
+func _setup_lighting() -> void:
+	if not ResourceLoader.exists(LIGHTING):
+		return
+	var script: GDScript = load(LIGHTING)
+	if script == null:
+		return
+	lighting = script.setup_scene(self, dusk_ambient())
+	lighting.watch(pause_menu)
+	lighting.follow_player(player, func() -> bool: return inventory != null and inventory.selected_tool() == "flashlight")
+	var lamp: Node2D = script.add_lamp(self, hatch.position + Vector2(0, -18), HATCH_LAMP[0], HATCH_LAMP[1], HATCH_LAMP[2], HATCH_LAMP[3])
+	lamp.name = "HatchLamp"
+	lamp.priority = 10000.0   # the safe-zone marker always wins the cap
+	if last_stand_pack and is_instance_valid(last_stand_pack):
+		var pl: Node2D = script.add_lamp(last_stand_pack, Vector2(0, -8), PACK_LAMP[0], PACK_LAMP[1], PACK_LAMP[2])
+		pl.name = "PackLamp"
+		pl.pulse = PACK_LAMP[3]
+		pl.priority = 200.0
+	lighting.setup_glow(TOXIC_GLOW[3], TOXIC_GLOW[0], TOXIC_GLOW[1], TOXIC_GLOW[2])
+	_update_toxic_glow()
+	lighting.add_heightmap_occluders(mining.floor_rows, BOTTOM_ROW * TILE, TILE)
+	mining.block_broken.connect(_on_block_broken_light)
+
+func _on_block_broken_light(cell: Vector2i, _kind: String) -> void:
+	if lighting:
+		lighting.refresh_ground_col(cell.x)
+		_update_toxic_glow()
+
+# Toxic tiles glow once exposed: top of their column, or a side open to a dug neighbour.
+func _update_toxic_glow() -> void:
+	var spots := PackedVector2Array()
+	for c in toxic_cells:
+		if mining.kind_at(c) == "":
+			continue   # dug out
+		var open: bool = c.y == mining.floor_rows[c.x]
+		for n in [c.x - 1, c.x + 1]:
+			if n >= 0 and n < COLS and mining.floor_rows[n] <= c.y:
+				open = true
+		if open:
+			spots.append(Vector2(c) * TILE + Vector2(8, 4))
+	lighting.set_glow_spots(spots)
+
+# Dusk outside: darker farther from the hatch and as radiation rises; warmer in
+# the suburb, greener in the depot (smooth between zones).
+func dusk_ambient() -> Color:
+	var f := distance_frac(player.position.x) if player else 0.0
+	var z := clampf(f * 3.0 - 0.5, 0.0, 2.0)   # 0 suburb .. 1 market .. 2 depot, blended
+	var i := mini(int(z), 1)
+	var tint: Color = (ZONE_TINT[i] as Color).lerp(ZONE_TINT[i + 1], smoothstep(0.0, 1.0, z - i))
+	var dark := DARK_DIST * f + DARK_RAD * clampf(rad.value / 100.0, 0.0, 1.0)
+	var c := DUSK * tint * (1.0 - dark)
+	c.a = 1.0
+	return c
 
 # Small camera shake (getting hit, landing a hit).
 func shake(strength: float, time: float) -> void:

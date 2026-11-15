@@ -218,9 +218,9 @@ func set_quality(q: String) -> void:
 			add_child(canvas_mod)
 		canvas_mod.color = _clamped(ambient)
 		_make_player_lights()
-		var sh := q == "full"
-		headlamp.shadow_enabled = sh
-		cone.shadow_enabled = sh and CONE_SHADOWS
+		if headlamp:
+			headlamp.shadow_enabled = q == "full"
+			cone.shadow_enabled = q == "full" and CONE_SHADOWS
 	for o in get_tree().get_nodes_in_group(GROUP_OCCLUDERS):
 		(o as CanvasItem).visible = q == "full"
 	if q == "full" and _ground_occ.is_empty() and not _ground_tops.is_empty():
