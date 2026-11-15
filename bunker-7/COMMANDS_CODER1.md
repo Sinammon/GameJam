@@ -18,6 +18,9 @@
    (also `shot_light_hatch.json`, `shot_light_depot.json`; quality full/simple/off).
 7. Screenshots (rendered window): `python3 ~/.claude/skills/godot/scripts/debug/run_scenario.py bunker-7 bunker-7/tools/shots/shot_tree.json --godot-bin "$GODOT"`
    (also `shot_tree_fall.json`, `shot_hole.json`, `shot_chop.json`, `shot_zombie.json`, `shot_ore.json`); PNGs land in the Godot user folder (`user://shot_*.png`).
+8. Art V3 captures: `shot_zombie_death.json`, `shot_hud.json`, `shot_hatch.json`, `shot_tutorial.json` (same command). Each also saves
+   its own numbered captures at exact moments (`user://shot_<mode>_<n>.png`: death frames, geiger levels 0-4 + backpack grid,
+   hatch closed/open/climbing, all 7 tutorial slides).
 
 ## Controls
 - Move: A/D or Left/Right. Jump: W, Up or Space. Interact: E.

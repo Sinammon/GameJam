@@ -156,3 +156,22 @@ Cleaned by `art_tools/clean_art.py` from `../art_raw_v2/{chars,world}` (raws unt
   clean_art.py. `tiles_crack.png` 64x16 (4 stages). Surface and dirt still come from `tiles_outside.png`.
 - Screenshots: `tools/shots/shot_zombie.json` (flashlight idle, a zombie attacking, one walking), `shot_ore.json`
   (every ore tile in a pit wall + cracks), `shot_chop.json` (mid axe swing on a pine), plus the old ones.
+
+## Art V3 batch
+Cleaned by `art_tools/clean_art.py --chars ../art_raw_v3 --world ../art_raw_v3` (raws untracked); list in `art/ART_INDEX.md`.
+- **Zombie**: new grey-skinned `zombie_walk_0..3` (22x32, replaces the old walk) and `zombie_death_0..3` (32x30 shared
+  canvas, bottom baseline, same px scale as the walk: stagger, buckle, fall back, lying flat). `_die()` plays `death` once
+  at 8 fps, holds the lying frame (`DEATH_HOLD` 0.25 s), then the old fade (`DEATH_TIME` * 0.5). The eye glow follows the
+  death frames. The dark-green tint of the hurt frame is gone (it stays only as the no-art fallback: hold last hurt frame,
+  sink, fade). Attack/hurt frames are still the V2 painted ones.
+- **HUD**: `ui_geiger.png` (5 frames of 24x24, frame = `radiation.level()`), drawn 1:1, the bar moved right to make room;
+  the red frame shakes 1 px at level 4. Hotbar tools: `icon_tool_{axe,pickaxe,flashlight,canteen}` (medkit keeps
+  `icon_medkit`), pixel-aligned. Backpack: `icon_backpack_<GSBridge.backpack_tier()>` (24x24), else `icon_backpack`, else the pack art.
+- **Hatch** (`actors/hatch.gd`): `obj_hatch_open.png` (32x23) while the player's InteractArea overlaps the hatch or the
+  player is inside, `obj_hatch.png` otherwise; `hold_open()` keeps it open and draws it over the survivor while climbing down.
+- **Tutorial**: the picture now fills the screen and the text sits in a dark panel along the bottom (top ~165 px is the
+  picture's subject area). Slide 3 = `tut_3_radiation.png`; 1 = `title_art`, 7 = `ending_rescue`; 2, 4, 5, 6 are composed
+  in `tutorial.gd` (`_compose_*`) from survivor frames, sky/far city/ground tiles, crate + material icons, `bunker_overview`, rooms.
+- Not used yet (for the walkable bunker): `obj_workbench` 38x32, `obj_upgrade_bench` 40x32, `obj_locker` 12x32,
+  `obj_door_locked` 32x44, `obj_door_open` 30x44, `obj_lamp_ceiling` 16x32, `obj_ladder` 10x16, `obj_ladder_top` 16x12,
+  `tile_shaft_wall` 16x16, `icon_tool_pipe` 16x16.
