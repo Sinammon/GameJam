@@ -98,6 +98,7 @@ var _slept := false
 var _light_script: Script = null
 
 func _ready() -> void:
+	busy = true   # until _arrive() has placed the survivor (no prompts / hints before that)
 	_load_lighting()
 	_build_static()
 	_add_door_lamps()
@@ -538,6 +539,7 @@ func _arrive() -> void:
 		camera.position = Vector2(walker.position.x, VIEW.y / 2.0)
 		camera.reset_smoothing()
 		walker.wake_up()
+		busy = false
 		_fade.color.a = 1.0
 		create_tween().tween_property(_fade, "color:a", 0.0, FADE_TIME)
 		banner(_day_text(), 6.0)
