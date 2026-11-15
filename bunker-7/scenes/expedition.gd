@@ -1,30 +1,49 @@
 extends Node2D
-# The outside level: tile world, hatch, crates, radiation timer, HUD.
+# The outside level: tile world, hatch, crates, radiation, HUD hookup.
 # This scene never changes scenes. It only calls GameState.bank_loot / player_died.
+# Systems live in their own scripts: radiation (scenes/radiation.gd), health
+# (actors/health.gd), inventory (scenes/inventory.gd), HUD (scenes/hud.tscn).
+#
+# Layout (V2): 10 screens wide, the hatch in the middle, zones mirrored:
+#   depot | market | suburb | HATCH | suburb | market | depot
+# Radiation and loot get better with distance from the hatch, both ways.
 
 const TILE := 16
-const COLS := 180            # 180 * 16 = 2880 px = 6 screens of 480
+const COLS := 300            # 300 * 16 = 4800 px = 10 screens of 480
 const WORLD_W := COLS * TILE
 const BASE_ROW := 14         # ground surface row on flat land (y = 224)
 const BOTTOM_ROW := 19       # fill dirt down to here
-const HATCH_X := 48.0
+const HATCH_COL := 150
+const HATCH_X := 2408.0      # centre of column 150 (the middle of the map)
+const HALF_W := 2400.0       # hatch -> edge, the "how far out" scale (0..1)
 
-# Radiation per second (percent). Grows the further right of the hatch you are.
-# Tuned so a straight round trip to the farthest crate (~54 s of walking at
-# 100 px/s) costs about 85% on Normal: possible, but no time to dawdle.
-const RAD_NEAR := 0.8
-const RAD_FAR := 2.4
-
-# Hills: [center column, half width in columns, height in tiles]
-const HILLS := [[40, 9, 2], [75, 12, 3], [110, 8, 2], [140, 14, 3], [165, 6, 1]]
-# Crate x positions (px). Circuits can only appear in the far ones.
-const CRATE_XS := [260, 520, 840, 1150, 1500, 1850, 2150, 2450, 2750]
+# Hills: [column offset from the hatch, half width in columns, height in tiles].
+# Mirrored with small changes so the two sides don't look identical.
+const HILLS := [[25, 9, 2], [60, 12, 3], [92, 8, 2], [120, 14, 3], [142, 6, 1],
+	[-30, 8, 2], [-62, 12, 3], [-95, 9, 2], [-118, 13, 3], [-140, 6, 1]]
+# Crate x positions (px), nearest first. Circuits only appear in the far ones
+# (more than 70% of the way to an edge). The last two are the farthest, one per
+# edge, both 2350 px from the hatch; the last one is at the right edge.
+const CRATE_XS := [2640, 2140, 2910, 1860, 3240, 1520, 3560, 1180, 3900, 820, 4230, 520, 4520, 250, 58, 4758]
 
 const CrateScript := preload("res://actors/crate.gd")
+const RadiationScript := preload("res://scenes/radiation.gd")
+const InventoryScript := preload("res://scenes/inventory.gd")
 
-var radiation := 0.0
+const PAUSE_MENU := "res://scenes/pause_menu.tscn"
+const RAD_LINES := ["Radiation rising. Head home.", "Radiation high! Go home now!", "Radiation sickness! Losing health!"]
+
+var rad: RefCounted = RadiationScript.new()
+var radiation: float:        # percent; a property so tests and the debug key can set it
+	get:
+		return rad.value
+	set(v):
+		rad.value = v
 var ended := false           # true once banking or dying has started (only one may ever run)
 var rad_mult := 1.0
+var inventory: Node = null
+var warning_sound: AudioStreamPlayer = null   # optional: audio/sfx_rad_warning.* if present
+var pause_menu: Node = null  # scenes/pause_menu.tscn (Esc), if present
 var surface_rows: Array[int] = []
 var use_art_tiles := false   # false = placeholder tileset from the scene
 
@@ -36,19 +55,14 @@ const T_ASPHALT := Vector2i(3, 0)
 const T_GRAVEL := Vector2i(1, 1)
 const T_SCRAP := Vector2i(2, 1)
 const T_TOXIC := Vector2i(3, 1)
-const AREA_COLS := 60        # suburb | market | depot, one third of the map each
+const AREA_COLS := 50        # per side: suburb, market, depot (50 columns = 800 px each)
 
 @onready var ground: TileMapLayer = $Ground
 @onready var hatch: Area2D = $Hatch
 @onready var player: CharacterBody2D = $Player
 @onready var crates: Node2D = $Crates
-@onready var rad_bar: ProgressBar = $HUD/RadBar
-@onready var carry_label: Label = $HUD/CarryLabel
-@onready var msg_label: Label = $HUD/MessageLabel
-@onready var hint_label: Label = $HUD/HintLabel
+@onready var hud: CanvasLayer = $HUD
 @onready var fade: ColorRect = $HUD/Fade
-
-var msg_tween: Tween
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.35, 0.4, 0.38))
@@ -60,19 +74,37 @@ func _ready() -> void:
 	player.position = hatch.position + Vector2(0, -2)
 	spawn_crates()
 	spawn_last_stand_pack()
+	inventory = InventoryScript.new()
+	inventory.name = "Inventory"
+	add_child(inventory)
+	inventory.setup(player)
+	inventory.tool_used.connect(player.use_tool)
+	hud.setup(player, inventory, rad, HATCH_X)
 	hatch.bank_requested.connect(_on_bank_requested)
 	player.message.connect(show_message)
-	player.items_changed.connect(update_hud)
-	update_hud()
-	msg_label.text = ""
+	player.out_of_health.connect(_die)
+	rad.warning.connect(_on_rad_warning)
+	rad.drain_tick.connect(_on_rad_drain)
+	_setup_warning_sound()
+	if ResourceLoader.exists(PAUSE_MENU):
+		pause_menu = load(PAUSE_MENU).instantiate()
+		add_child(pause_menu)
+
+# 0 = suburb (next to the hatch), 1 = market, 2 = depot (edges). Same on both sides.
+func area_of(col: int) -> int:
+	return clampi(floori(absi(col - HATCH_COL) / float(AREA_COLS)), 0, 2)
+
+# 0 at the hatch .. 1 at either edge.
+func distance_frac(x: float) -> float:
+	return clampf(absf(x - HATCH_X) / HALF_W, 0.0, 1.0)
 
 # --- background --------------------------------------------------------------
 
 # Parallax layers, back to front. The camera never moves vertically (the world is
-# one screen tall), so only x scrolls. Near layers: one panel per area, side by
-# side, scroll 0.8 so all three are crossed over the 2880 px level.
-# far: mirrored copies so the repeat is seamless. Missing textures are skipped
-# and the plain Sky rect stays.
+# one screen tall), so only x scrolls. Near layers: one panel per area, scroll 0.8,
+# mirrored around the middle like the zones: depot, market, suburb | suburb,
+# market, depot. far: mirrored copies so the repeat is seamless. Missing textures
+# are skipped and the plain Sky rect stays.
 func build_background() -> void:
 	var sky := Art.texture("res://art/world_clean/bg_sky.png")
 	if sky:
@@ -82,17 +114,19 @@ func build_background() -> void:
 	if far:
 		_parallax(0.4, [far], -14.0, true, Color(0.8, 0.75, 0.75))
 	var near: Array[Texture2D] = []
-	for area in ["suburb", "market", "depot"]:
+	for area in ["depot", "market", "suburb"]:
 		var t := Art.texture("res://art/world_clean/bg_near_%s.png" % area)
 		if t:
 			near.append(t)
 	if near.size() == 3:
-		_parallax(0.8, near, -26.0, false, Color(0.62, 0.58, 0.6))
+		near.append_array([near[2], near[1], near[0]])
+		_parallax(0.8, near, -26.0, false, Color(0.62, 0.58, 0.6), 3)
 
 var _bg_layers := 0
 
 # tint darkens the layer so the player and crates stand out against it.
-func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Color) -> void:
+# mirror_from: panels whose index (mod the list) is >= this are flipped.
+func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Color, mirror_from := -1) -> void:
 	var layer := Parallax2D.new()
 	layer.modulate = tint
 	layer.scroll_scale = Vector2(scroll, 1.0)
@@ -110,7 +144,7 @@ func _parallax(scroll: float, textures: Array, y: float, mirror: bool, tint: Col
 		s.texture = tex
 		s.centered = false
 		s.position = Vector2(x, y)
-		s.flip_h = mirror and i % 2 == 1
+		s.flip_h = (mirror and i % 2 == 1) or (mirror_from >= 0 and i % textures.size() >= mirror_from)
 		layer.add_child(s)
 		x += tex.get_width()
 		i += 1
@@ -148,7 +182,7 @@ func build_tileset() -> bool:
 func art_tile(x: int, y: int) -> Vector2i:
 	var n := (x * 7 + y * 13) % 11   # cheap deterministic noise
 	if y == surface_rows[x]:
-		match x / AREA_COLS:
+		match area_of(x):
 			0: return T_GRASS
 			1: return T_ASPHALT if surface_rows[x] == BASE_ROW and n < 7 else T_GRAVEL
 			_: return T_TOXIC if n == 0 else T_SCRAP
@@ -160,7 +194,7 @@ func build_terrain() -> void:
 		var h := 0
 		for hill in HILLS:
 			var slope: float = float(hill[1]) / float(hill[2])
-			h = maxi(h, int(hill[2] - absf(x - hill[0]) / slope))
+			h = maxi(h, int(hill[2] - absf(x - (HATCH_COL + hill[0])) / slope))
 		surface_rows.append(BASE_ROW - maxi(h, 0))
 	for x in COLS:
 		var left := surface_rows[maxi(x - 1, 0)]
@@ -189,8 +223,7 @@ func spawn_crates() -> void:
 		var c: Area2D = crate_scene.instantiate()
 		c.position = Vector2(x, surface_y(x))
 		crates.add_child(c)
-		var far := clampf((x - HATCH_X) / (WORLD_W - HATCH_X), 0.0, 1.0)
-		c.setup(far, loot_mult)
+		c.setup(distance_frac(x), loot_mult)
 
 # The backpack left where the player died last time. Gives items back when E is pressed.
 # Partial pickup rule: take what fits (rarest first, like crates); the rest stays
@@ -248,66 +281,81 @@ func spawn_last_stand_pack() -> void:
 
 # --- radiation, death, banking ---------------------------------------------
 
+# Radiation fills outside (faster farther out, both ways). At 100% it drains
+# health (rad.drain_tick); health 0 -> player.out_of_health -> _die().
 func _process(delta: float) -> void:
 	if ended:
 		return   # no radiation during the death fade or after banking
-	if not hatch.player_inside:
-		var dist := clampf((player.position.x - HATCH_X) / (WORLD_W - HATCH_X), 0.0, 1.0)
-		var rate := lerpf(RAD_NEAR, RAD_FAR, dist) * rad_mult
-		radiation = minf(radiation + rate * delta, 100.0)
-	rad_bar.value = radiation
-	hint_label.text = "E: bank loot" if hatch.player_inside else ""
-	if radiation >= 100.0:
-		_die()
+	rad.tick(delta, distance_frac(player.position.x), rad_mult, hatch.player_inside)
+	hud.set_hint("E: bank loot" if hatch.player_inside else "")
 
-func _die() -> void:
+func _on_rad_drain() -> void:
+	if not ended:
+		player.take_damage(RadiationScript.DRAIN_DAMAGE, "radiation")
+
+func _on_rad_warning(level: int) -> void:
+	show_message(RAD_LINES[level])
+	if warning_sound:
+		warning_sound.pitch_scale = 1.0 + 0.25 * level
+		warning_sound.play()
+
+func _setup_warning_sound() -> void:
+	for ext in ["wav", "ogg", "mp3"]:
+		var path := "res://audio/sfx_rad_warning.%s" % ext
+		if ResourceLoader.exists(path):
+			warning_sound = AudioStreamPlayer.new()
+			warning_sound.stream = load(path)
+			add_child(warning_sound)
+			return
+
+# reason: "radiation", "zombie", ... shown on the HUD during the fade.
+func _die(reason := "") -> void:
 	if ended:
 		return
 	ended = true
-	hint_label.text = ""
+	_disable_pause()
+	if reason == "":
+		reason = player.death_reason if player.death_reason != "" else "radiation"
+	hud.set_hint("")
 	var items: Dictionary = player.items.duplicate()   # snapshot at the moment of death
 	var where: Vector2 = player.global_position
-	player.die()
+	player.die(reason)
 	# One sequence: wait for the collapse, then fade. (Awaiting two signals in a
 	# row can hang forever if the second one already fired.)
 	await player.collapse_done
+	hud.show_death(reason)
 	var tw := create_tween()
 	tw.tween_property(fade, "color:a", 1.0, 1.0)
 	await tw.finished
+	await get_tree().create_timer(0.8, false).timeout   # let the reason be read
 	GSBridge.player_died(items, where)
 
 func _on_bank_requested(p: Node) -> void:
 	if ended:
 		return
 	ended = true
-	hint_label.text = ""
+	_disable_pause()
+	hud.set_hint("")
 	p.frozen = true
 	var loot: Dictionary = p.items.duplicate()
 	p.clear_items()
 	GSBridge.bank_loot(loot)
 
+# No pausing once the expedition is ending (death fade / scene change).
+func _disable_pause() -> void:
+	if pause_menu and "enabled" in pause_menu:
+		pause_menu.enabled = false
+
 # --- HUD -------------------------------------------------------------------
 
-func update_hud() -> void:
-	var it: Dictionary = player.items
-	carry_label.text = "Carry %d/%d   wood %d  concrete %d  scrap %d  circuit %d  water %d  food %d" % [
-		player.total_items(), player.carry_limit,
-		it["wood"], it["concrete"], it["scrap"], it["circuits"], it["water"], it["food"]]
-
 func show_message(text: String) -> void:
-	msg_label.text = text
-	msg_label.modulate.a = 1.0
-	if msg_tween:
-		msg_tween.kill()
-	msg_tween = create_tween()
-	msg_tween.tween_property(msg_label, "modulate:a", 0.0, 0.6).set_delay(1.5)
+	hud.show_message(text)
 
-# Debug keys, only in debug builds (editor / debug export), never in the shipped game.
+# Debug key, only in debug builds (editor / debug export), never in the shipped game.
+# (Esc is the `pause` action now; the pause menu listens to it.)
 func _unhandled_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
-			get_tree().quit()
-		elif event.keycode == KEY_F1:   # fill radiation to test dying
+		if event.keycode == KEY_F1:   # fill radiation to test the health drain
 			radiation = 100.0
